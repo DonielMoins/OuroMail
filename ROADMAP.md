@@ -144,8 +144,9 @@ the first people MailCraft is for. Each is a shortfall in [`docs/gaps.md`](docs/
 12. Sweep, Ignore and Clean Up Conversation, Search Folders, Action Shortcuts (gap 17).
 13. Read receipts, one-click unsubscribe, attachments inside `winmail.dat` (gap 17).
 14. Free/busy across the organisation, rooms (gaps 9, 17).
-15. Spell checking while writing (gap 7); native review of the French, German, Spanish, Italian and
-    Dutch previews, more languages, right-to-left layout (gap 14). Partly done: the five ship as previews.
+15. Broader native acceptance of local spelling and grammar while writing (#954, gap 7); native review
+    of the French, German, Spanish, Italian and Dutch previews, more languages, right-to-left layout
+    (gap 14). Partly done: local spelling and optional local grammar are in (#954); the five ship as previews.
 16. With several accounts, combined folders (All Inboxes, Sent, Drafts, Archive, Trash) ([#625](https://github.com/UCS-Care-Group/mailcraft/issues/625)); attachments dragged out of a message into other programs ([#626](https://github.com/UCS-Care-Group/mailcraft/issues/626)), and on macOS looked at with Quick Look ([#627](https://github.com/UCS-Care-Group/mailcraft/issues/627)).
 17. Colour schemes of the owner's own: a whole palette (light, dark and high contrast) read from a file and chosen by name, checked so that text stays readable. Today there are four accents and high contrast, chosen in File › Options (gap 17).
 
@@ -177,7 +178,7 @@ follows:
 | M0 | **Foundations** | The layered workspace, engine, formats, protocols, front end and tooling, tested | Done (2026-10-11) |
 | M1 | **Connects** | A mainstream hosted account works for a week on two devices | Became beta itself, for Microsoft accounts: B1–B7 of [the beta checklist](#the-beta-checklist) |
 | M2 | **Reads like mail** | Pictures, layout and colours in HTML mail, without fetching anything; more character sets | Done; what is left of HTML mail is gap 6, and character sets are closed (gap 13) |
-| M3 | **Writes like mail** | Rich-text composing and replies, pictures, spell check | Rich text done (R4); pictures in the body and spell checking after beta (gap 7) |
+| M3 | **Writes like mail** | Rich-text composing and replies, pictures, spell check | Rich text done (R4); pictures in the body after beta (gap 7); local spelling and optional local grammar implemented (#954), with broader native acceptance pending |
 | M4 | **Schedules** | Invitations by mail, answers from the reading pane, time zones, reminders that fire | Done for Microsoft 365, desktop alerts included (R7.1); what is left is in gaps 9–11 |
 | M5 | **Scales** | A large mailbox stays quick | Became R6, for 200,000 messages (B8): met on the reference machine; every message's headers are still held in memory (gap 8) |
 | M6 | **Beyond IMAP** | JMAP and Microsoft Graph over HTTPS, which also gives the browser build a server connection | Graph for Microsoft accounts done (R3); JMAP accounts read in the browser build (#226); changes going up and sending next |

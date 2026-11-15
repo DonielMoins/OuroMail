@@ -156,6 +156,18 @@ mod pick_item;
 mod pick_item_tests;
 pub mod proof;
 mod proof_dialog;
+#[cfg(test)]
+mod proof_lifecycle_tests;
+#[cfg(test)]
+mod proof_menu_tests;
+pub mod proof_server;
+#[cfg(test)]
+mod proof_server_command_tests;
+#[cfg(test)]
+mod proof_server_tests;
+pub mod proof_service;
+#[cfg(test)]
+mod proof_service_tests;
 pub mod reading;
 mod reminders;
 mod report_problem;
@@ -254,6 +266,11 @@ pub struct Services {
     /// Absent in the browser build and in the tests: grammar is then never asked for, and spelling,
     /// which is this computer's, still works.
     pub proof_check: Option<Box<dyn Fn(proof::Request) -> Receiver<proof::Reply>>>,
+    /// Optional desktop-only LanguageTool installer/supervisor. Status is cached; work is queued
+    /// on the host's threads, and downloading/running needs an explicit owner action.
+    pub proof_server: Option<std::sync::Arc<dyn proof_server::ManagedServer>>,
+    /// Bounded native workers for fast spelling, multilingual grammar, and on-demand suggestions.
+    pub proof_native: Option<std::sync::Arc<dyn proof_service::ProofService>>,
     /// Desktop: the icon and application id of the main window, which every other window of the
     /// system (reminders, messages) takes too.
     pub window_identity: Option<windows::WindowIdentity>,
@@ -1142,6 +1159,18 @@ pub const UI_COMMANDS: &[(&str, &str, &str, &str)] = &[
     ("ui.language", "Interface Language", "File › Options", r#"{"language": "auto"|"en"|"fr"|"de"|"es"|"it"|"nl"|"pseudo"}"#),
     ("ui.interfaceSize", "Interface Size", "File › Options", r#"{"value": 80-200}"#),
     (
+        "ui.proofServer",
+        "Built-in Proofing Server",
+        "File › Options",
+        r#"{"action"?: "check"|"download"|"start"|"stop"|"cancel"} — the built-in LanguageTool server's cached snapshot, and only that: without an action it asks the host for nothing (no probe, download, start, stop or queue). An action is forwarded once to the host and a cached snapshot comes back, not a completion. Answers {"available", "phase", "java", "version", "progress": {"downloaded", "total"}, "issue", "epoch", "endpoint"}; the endpoint is given only while running and only when it is a loopback address this computer may use. With no host, available is false and every action is refused. An action is the owner's or a script's explicit consent; never an agent's, even with every permission. Any parameter but action is refused"#,
+    ),
+    (
+        "ui.proofDictionaryFolder",
+        "Dictionary Folder",
+        "File › Options",
+        "{} — the owner's press of Browse by the dictionary folder: asks the host for one folder, once, and only fills that field with the answer. Nothing is saved until Save is pressed there, and a cancelled or closed dialog leaves both the field and the setting as they were. Never for an agent, even with every permission. Answers {\"pending\": \"fileDialog\"}; the folder itself is never answered back, and any parameter is refused",
+    ),
+    (
         "ui.previewAttachment",
         "Preview Attachment",
         "Message › Attachments",
@@ -1813,6 +1842,10 @@ pub struct MailApp {
     pub(crate) ctx: Option<egui::Context>,
     /// The file dialog the host is showing, and what its answer is for ([`files`]).
     pub(crate) file_dialog: Option<files::PendingDialog>,
+    /// The folder a native dialog picked for File › Options' dictionary folder, waiting for the
+    /// field there to take it ([`files::pick_dictionary_folder`]). Never written to `ui.json`, and
+    /// never a setting by itself: the owner's Save on that page is what keeps it.
+    pub(crate) proof_dictionary_pick: Option<String>,
     /// Calendar and contact files the system asked MailCraft to open, each waiting to be asked
     /// about ([`files::ask_next`]).
     pub(crate) opened_waiting: std::collections::VecDeque<String>,
@@ -1883,6 +1916,79 @@ pub(crate) enum MailRun {
     Jmap { account: Id, opening: u64, pieces: Receiver<mailcraft_model::sync::JmapMailResult> },
     /// An Exchange server account's run ([`ews_mail`]).
     Ews { account: Id, opening: u64, pieces: Receiver<mailcraft_model::sync::EwsMailResult> },
+}
+
+/// `ui.proofServer`: one seam over the managed server. A query reads the host's cached snapshot
+/// and asks for nothing; an action is forwarded exactly once to `ManagedServer::request`, which
+/// only admits bounded work. These refusals are fixed: no params, path, host output or draft.
+const PROOF_SERVER_ONLY_ACTION: &str = "`ui.proofServer` takes only `action`";
+const PROOF_SERVER_ACTIONS: &str = "`action` is \"check\", \"download\", \"start\", \"stop\" or \"cancel\"";
+const PROOF_SERVER_UNAVAILABLE: &str = "The built-in grammar server is not available in this build or on this computer.";
+const PROOF_SERVER_OWNER_ONLY: &str =
+    "Only the owner or a script can operate the built-in grammar server; an agent may read its status but never change it.";
+
+/// The action a `ui.proofServer` call names, or `None` for a plain cached-status query. Any
+/// other parameter is refused, so no binary, archive, address, port or path can be smuggled in.
+fn proof_server_action(p: &Value) -> Result<Option<proof_server::Action>, &'static str> {
+    let Value::Object(fields) = p else {
+        return match p {
+            Value::Null => Ok(None),
+            _ => Err(PROOF_SERVER_ONLY_ACTION),
+        };
+    };
+    if fields.keys().any(|key| key != "action") {
+        return Err(PROOF_SERVER_ONLY_ACTION);
+    }
+    match fields.get("action") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(name)) => match name.as_str() {
+            "check" => Ok(Some(proof_server::Action::Check)),
+            "download" => Ok(Some(proof_server::Action::Download)),
+            "start" => Ok(Some(proof_server::Action::Start)),
+            "stop" => Ok(Some(proof_server::Action::Stop)),
+            "cancel" => Ok(Some(proof_server::Action::Cancel)),
+            _ => Err(PROOF_SERVER_ACTIONS),
+        },
+        Some(_) => Err(PROOF_SERVER_ACTIONS),
+    }
+}
+
+/// The wire snapshot of a cached `Status`: fixed enum labels, bounded host text, and an endpoint
+/// only while the server runs and only when the adapter's loopback rule accepts it.
+fn proof_server_snapshot(available: bool, status: &proof_server::Status) -> Value {
+    let endpoint = match (status.phase, status.endpoint.as_deref()) {
+        (proof_server::Phase::Running, Some(url)) if mailcraft_model::proof::address_allowed(url, false) => json!(url),
+        _ => Value::Null,
+    };
+    json!({
+        "available": available,
+        "phase": format!("{:?}", status.phase),
+        "java": format!("{:?}", status.java),
+        "version": status.version.chars().take(64).collect::<String>(),
+        "progress": {"downloaded": status.downloaded_bytes, "total": status.total_bytes},
+        "issue": status.issue.map(|issue| format!("{issue:?}")),
+        "epoch": status.epoch,
+        "endpoint": endpoint,
+    })
+}
+
+/// A refused action in fixed words, without any server output, command line or draft.
+fn proof_server_issue_text(issue: proof_server::Issue) -> &'static str {
+    use proof_server::Issue;
+    match issue {
+        Issue::Unavailable => PROOF_SERVER_UNAVAILABLE,
+        Issue::Busy => "The built-in server is busy with another request; nothing else was started.",
+        Issue::JavaMissing => "Java 17 or newer is needed to start it.",
+        Issue::JavaTooOld => "The Java on this computer is older than 17.",
+        Issue::DownloadFailed => "The download did not finish.",
+        Issue::IntegrityFailed => "What was downloaded did not match the checksum this build pins for the official archive.",
+        Issue::InvalidArchive => "The downloaded archive could not be read.",
+        Issue::InstallFailed => "It could not be unpacked into MailCraft's folder.",
+        Issue::NotInstalled => "There is no installed copy to start.",
+        Issue::StartFailed => "It did not start.",
+        Issue::StartTimedOut => "It did not answer in time.",
+        Issue::Cancelled => "The last operation was cancelled.",
+    }
 }
 
 impl MailApp {
@@ -2020,6 +2126,7 @@ impl MailApp {
             running_after_save: false,
             ctx: None,
             file_dialog: None,
+            proof_dictionary_pick: None,
             opened_waiting: Default::default(),
             hit: Default::default(),
             reminders: Default::default(),
@@ -2497,6 +2604,43 @@ impl MailApp {
             "ui.openDataFolder" => self.open_data_folder(),
             "ui.confirmServers" => self.confirm_servers(),
             "ui.dismissSettingsNotice" => settings_notice::dismiss(self),
+            "ui.proofServer" => {
+                let action = match proof_server_action(p) {
+                    Ok(action) => action,
+                    Err(why) => return Some(Err(why.into())),
+                };
+                // A permission an agent was given is never consent to install or run a program.
+                if action.is_some() && self.session.agent.is_some() {
+                    return Some(Err(PROOF_SERVER_OWNER_ONLY.into()));
+                }
+                let Some(server) = self.services.proof_server.as_deref() else {
+                    return Some(match action {
+                        None => Ok(proof_server_snapshot(false, &proof_server::Status::default())),
+                        Some(_) => Err(PROOF_SERVER_UNAVAILABLE.into()),
+                    });
+                };
+                match action {
+                    // A query is a cached read: no probe, download, start, stop or queue.
+                    None => Ok(proof_server_snapshot(true, &server.status())),
+                    Some(action) => match server.request(action) {
+                        // The host only admitted the work; this is the same cached snapshot, and
+                        // the worker's later phases are the only word of completion.
+                        Ok(()) => Ok(proof_server_snapshot(true, &server.status())),
+                        Err(issue) => Err(proof_server_issue_text(issue).into()),
+                    },
+                }
+            }
+            "ui.proofDictionaryFolder" => {
+                // Browse takes nothing: no caller names where the dictionaries are kept.
+                if !matches!(p, Value::Null) && !p.as_object().is_some_and(|o| o.is_empty()) {
+                    return Some(Err(files::DICTIONARY_NO_PARAMS.into()));
+                }
+                // A dialog on the owner's own screen: never an agent's, whatever it was granted.
+                if self.session.agent.is_some() {
+                    return Some(Err(files::DICTIONARY_OWNER_ONLY.into()));
+                }
+                files::pick_dictionary_folder(self)
+            }
             "ui.tab" => {
                 let Some(tab) = s("tab") else { return Some(Err("missing `tab`".into())) };
                 if tab == "File" {

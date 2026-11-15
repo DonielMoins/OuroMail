@@ -228,6 +228,17 @@ const SAFE: &[&str] = &[
     "insert.symbol",
     "insert.dateTime",
     "review.wordCount",
+    // Checking and walking places do not change settings; actual draft edits are also checked
+    // against the owner's message by Session::run.
+    "proof.check",
+    "proof.suggest",
+    "proof.status",
+    // Only the cached managed-server snapshot; lifecycle actions are refused by `classify`.
+    "ui.proofServer",
+    "review.spelling",
+    "proof.change",
+    "proof.ignore",
+    "proof.close",
     // Folders.
     "folder.select",
     "folder.list",
@@ -491,6 +502,11 @@ const SETTINGS: &[&str] = &[
     // the owner's phishing warning.
     "mail.dismissWarnings",
     "file.options",
+    "proof.set",
+    "proof.addWord",
+    "proof.removeWord",
+    "proof.ignoreRule",
+    "proof.forgetRules",
     // Work Offline: turned off, what waits in the Outbox goes out.
     "sync.offline",
     "calendar.deleteAnsweredRequests",
@@ -597,6 +613,9 @@ const NEVER: &[&str] = &[
     // Another program (the file manager) started on the owner's screen, as for an attachment
     // (#460): only ever the owner's own click.
     "ui.openDataFolder",
+    // A folder chosen for the dictionaries (#954): a dialog on the owner's own screen, opened by
+    // their own press of Browse, and never an agent's whatever it was granted.
+    "ui.proofDictionaryFolder",
     // The redacted log tail, and the clipboard overwritten with it.
     "ui.copyDiagnostics",
     // Only the owner may configure an OAuth registration; an agent has no route to its
@@ -693,6 +712,16 @@ pub fn no_paths(id: &str, key: &str) -> String {
 /// `id` with these params: its class, now (`"send": true`, the Outbox, Deleted Items).
 pub fn classify(s: &Session, id: &str, params: &Value) -> Access {
     let Some(base) = access(id) else { return Access::Never };
+    // Reading cached status is not consent to install or operate a process. No agent permission
+    // grants a lifecycle action; the window repeats this check at the host request boundary.
+    if id == "ui.proofServer" && params.get("action").is_some_and(|action| !action.is_null()) {
+        return Access::Never;
+    }
+    // Ignoring one place is transient; keeping a rule quiet changes the owner's settings.
+    // A signature's editor is also the owner's settings, rather than an agent-owned draft.
+    if (id == "proof.ignore" && p::str(params, "rule").is_some_and(|rule| !rule.is_empty())) || (id == "proof.change" && s.signature_edit.is_some()) {
+        return Access::Owner(Class::Settings);
+    }
     let sends = p::bool(params, "send") == Some(true);
     // An appointment's window with changes the owner hasn't saved closes with the appointment
     // (`unsaved`, from `agent_gate`): taking that away is asked about every time (#494).

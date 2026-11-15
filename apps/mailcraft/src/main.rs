@@ -80,6 +80,29 @@ mod opened_files;
 mod opened_flow;
 mod own_keys;
 mod picture_cache;
+mod proof_helper;
+#[cfg(test)]
+mod proof_helper_tests;
+mod proof_host;
+mod proof_host_state;
+#[cfg(test)]
+mod proof_host_state_tests;
+#[cfg(test)]
+mod proof_host_tests;
+mod proof_java;
+#[cfg(test)]
+mod proof_java_tests;
+mod proof_native;
+#[cfg(test)]
+mod proof_native_tests;
+mod proof_protocol;
+#[cfg(test)]
+mod proof_protocol_tests;
+mod proof_supervisor;
+#[cfg(test)]
+mod proof_supervisor_tests;
+#[cfg(test)]
+mod proof_wiring_tests;
 mod proofreading;
 #[cfg(test)]
 mod proofreading_tests;
@@ -1217,8 +1240,9 @@ fn graph_sending_with(mut request: GraphRequest, zone: &str, renew: Renew<'_>, r
         out.uploaded = Some(uploaded);
     }
     // The wide stretch with the contacts, every quarter of an hour; otherwise the days on screen.
+    // (The window counts the wide stretch from its own clock and says it in `calendar`.)
     let now = mailcraft_time::now();
-    let stretch = if request.directory { Some((now - CALENDAR_BEHIND, now + CALENDAR_AHEAD)) } else { request.calendar };
+    let stretch = if request.directory { request.calendar.or(Some((now - CALENDAR_BEHIND, now + CALENDAR_AHEAD))) } else { request.calendar };
     // A shared mailbox's calendars (#70): asked for and written at its own address, and only
     // those that are ticked are asked for (the window says which, in the asks); no contacts,
     // categories or settings of it.
@@ -1717,6 +1741,8 @@ fn services(
     let tree_ctx = ctx.clone();
     let pst_ctx = ctx.clone();
     let alert_ctx = ctx.clone();
+    let proof_ctx = ctx.clone();
+    let proof_server_ctx = ctx.clone();
     let (keys_ctx, keys_store) = (ctx.clone(), secrets::store());
     let attachment_preview = attachment_render::service(&ctx);
     let (sync_ctx, sign_in_ctx, graph_ctx, mx_ctx, test_ctx) = (ctx.clone(), ctx.clone(), ctx.clone(), ctx.clone(), ctx);
@@ -1724,9 +1750,17 @@ fn services(
     let cancel = sync_cancel.clone();
     Services {
         file_dialog: Some(file_dialog),
-        // Spelling and grammar (#954): this computer's dictionaries are the engine's; grammar is a
-        // LanguageTool server's, asked on a thread of its own through this service.
+        // Draft checks and on-demand suggestions share bounded native workers (#954). Answers
+        // wake the window; no dictionary or connection is touched on the window's thread.
+        proof_native: Some(proof_native::service(std::sync::Arc::new(move || proof_ctx.request_repaint()))),
+        // The older grammar-only hook remains for the Options connection test.
         proof_check: Some(proofreading::service()),
+        // Construction and status reads are passive. Only an explicit Options action admits
+        // installation discovery, a download, or a private helper bound to this window's life.
+        proof_server: Some(proof_host::service(
+            mailcraft_control_key::settings_dir().filter(|_| prefs_enabled()).map(|base| base.join("proofing")),
+            std::sync::Arc::new(move || proof_server_ctx.request_repaint()),
+        )),
         // Mail arrives in pieces as the run goes (what was sent, then folder by folder), through a
         // channel short enough that a busy window holds the run back instead of piling pieces up.
         sync: Some(Box::new(move |request| {
@@ -2024,6 +2058,15 @@ fn already_open() {
 }
 
 fn main() -> eframe::Result {
+    // The private helper has no mailbox, logger or single-instance state. Inspect only the fixed,
+    // bounded invocation before normal startup; malformed helper arguments fail closed as well.
+    if std::env::args_os().nth(1).is_some_and(|arg| arg == proof_protocol::ENTRY) {
+        let code = match proof_protocol::parse_mode(std::env::args_os().skip(1)) {
+            Some(mode) => proof_helper::run(mode),
+            None => proof_protocol::EXIT_INVOCATION,
+        };
+        std::process::exit(code);
+    }
     // First, so the panic hook and every start-up warning are recorded (`logging`).
     let logger = logging::install();
     logging::install_panic_hook();

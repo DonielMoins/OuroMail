@@ -17,6 +17,16 @@ use serde::Deserialize;
 
 use super::{Diagnostic, Kind, Language, MAX_DIAGNOSTICS, ProofError, Source, Span};
 
+/// Longest rule id kept from an answer, in characters. LanguageTool's own are short names
+/// (`FR_ACCORD`, `EN_AGREEMENT`); a longer one is a server's mistake or a hostile answer, and it
+/// is not carried into a diagnostic (nor into the settings when the owner silences it).
+const MAX_RULE_ID: usize = 64;
+
+/// Longest replacement kept from an answer, in characters. A suggestion is text that may be put
+/// into the draft in one step, so it is bounded as a personal word is; LanguageTool's are a word
+/// or a phrase, never a paragraph.
+const MAX_REPLACEMENT: usize = 300;
+
 /// How the text is asked to be checked: LanguageTool's own language, and no rule switched off by
 /// the request (the owner's quiet rules are dropped from the answer here instead, so that one
 /// answer is the same for every window).
@@ -124,7 +134,7 @@ pub fn parse_answer(body: &[u8], text: &str, language: Language, ignored: &[Stri
         if out.len() >= MAX_DIAGNOSTICS {
             break;
         }
-        let id = m.rule.as_ref().and_then(|r| r.id.clone()).or_else(|| m.rule_id.clone());
+        let id = m.rule.as_ref().and_then(|r| r.id.clone()).or_else(|| m.rule_id.clone()).filter(|id| id.chars().count() <= MAX_RULE_ID);
         if let Some(id) = &id
             && ignored.iter().any(|quiet| quiet == id)
         {
@@ -138,7 +148,8 @@ pub fn parse_answer(body: &[u8], text: &str, language: Language, ignored: &[Stri
             Some("misspelling") => Kind::Spelling,
             _ => Kind::Grammar,
         };
-        let mut d = Diagnostic::new(span, kind, Source::Server).saying(&m.message).suggesting(m.replacements.iter().map(|r| r.value.clone()));
+        let replacements = m.replacements.iter().filter(|r| r.value.chars().count() <= MAX_REPLACEMENT).map(|r| r.value.clone());
+        let mut d = Diagnostic::new(span, kind, Source::Server).saying(&m.message).suggesting(replacements);
         d.language = Some(language);
         d.rule = id;
         if d.is_sound() {
@@ -170,83 +181,4 @@ pub fn utf16_to_byte(text: &str, index: &[(usize, usize)], units: i64) -> Option
     let at = index.binary_search_by_key(&units, |(u, _)| *u).ok()?;
     let byte = index.get(at).map(|(_, b)| *b)?;
     (byte <= text.len() && text.is_char_boundary(byte)).then_some(byte)
-}
-
-#[cfg(test)]
-mod unit {
-    use super::*;
-
-    #[test]
-    fn utf16_offsets_are_converted() {
-        let text = "Les documents sont important.";
-        let index = utf16_index(text);
-        for (units, byte) in &index {
-            assert_eq!(utf16_to_byte(text, &index, *units as i64), Some(*byte));
-        }
-        // `é` is one UTF-16 unit and two bytes: a server counting units lands after it by two bytes.
-        let text = "café noir";
-        let index = utf16_index(text);
-        assert_eq!(utf16_to_byte(text, &index, 4), Some(5));
-        assert_eq!(text.get(5..), Some(" noir"));
-        // A character outside the basic plane is two units and four bytes.
-        let text = "a🦀b";
-        let index = utf16_index(text);
-        assert_eq!(utf16_to_byte(text, &index, 1), Some(1));
-        assert_eq!(utf16_to_byte(text, &index, 2), None, "the middle of the crab is no character's start");
-        assert_eq!(utf16_to_byte(text, &index, 3), Some(5));
-        assert_eq!(utf16_to_byte(text, &index, 99), None);
-        assert_eq!(utf16_to_byte(text, &index, -1), None);
-    }
-
-    #[test]
-    fn a_form_carries_the_text_whole() {
-        let req = CheckRequest { text: "Bonjour & à bientôt = 100%", language: Language::FrCa };
-        let form = req.form();
-        assert!(form.starts_with("text=Bonjour+%26+%C3%A0+bient%C3%B4t+%3D+100%25&language=fr-CA"));
-        assert!(!form.contains(' '));
-    }
-
-    #[test]
-    fn an_answer_is_read_with_its_offsets_in_bytes() {
-        let text = "Les document sont important.";
-        let body = br#"{"matches":[{"message":"Accord","replacements":[{"value":"documents"}],"offset":4,"length":8,"rule":{"id":"FR_ACCORD","issueType":"grammar"}}]}"#;
-        let got = parse_answer(body, text, Language::FrCa, &[]).expect("an answer");
-        assert_eq!(got.len(), 1);
-        let d = got.first().expect("one");
-        assert_eq!(text.get(d.span.start..d.span.end), Some("document"));
-        assert_eq!(d.suggestions.first().map(String::as_str), Some("documents"));
-        assert_eq!(d.kind, Kind::Grammar);
-        assert_eq!(d.rule.as_deref(), Some("FR_ACCORD"));
-    }
-
-    #[test]
-    fn a_match_that_does_not_fit_is_dropped() {
-        let text = "Bonjour";
-        for body in [
-            r#"{"matches":[{"message":"x","offset":2,"length":99}]}"#,
-            r#"{"matches":[{"message":"x","offset":-4,"length":1}]}"#,
-            r#"{"matches":[{"message":"x","offset":0,"length":0}]}"#,
-            r#"{"matches":[{"message":"x","offset":900,"length":1}]}"#,
-        ] {
-            let got = parse_answer(body.as_bytes(), text, Language::EnCa, &[]).expect("an answer");
-            assert!(got.is_empty(), "{body}");
-        }
-    }
-
-    #[test]
-    fn a_quiet_rule_is_left_out() {
-        let text = "Bonjour";
-        let body = br#"{"matches":[{"message":"x","offset":0,"length":7,"rule":{"id":"QUIET"}}]}"#;
-        assert!(parse_answer(body, text, Language::FrCa, &["QUIET".to_string()]).expect("an answer").is_empty());
-    }
-
-    #[test]
-    fn an_answer_that_is_not_one_is_an_error_and_never_a_panic() {
-        for body in [b"not json".as_slice(), b"{}[]".as_slice(), b"null".as_slice(), b"".as_slice()] {
-            assert!(
-                parse_answer(body, "text", Language::EnCa, &[]).is_err()
-                    || parse_answer(body, "text", Language::EnCa, &[]).is_ok_and(|d| d.is_empty())
-            );
-        }
-    }
 }

@@ -13,13 +13,31 @@
 //! be read is skipped, and a dictionary that cannot be read at all is an error the window says in
 //! words instead of a crash.
 //!
+//! Three of the format's rules decide what a stem's words are, and they are the ones a reader is
+//! most likely to get wrong:
+//!
+//! - A stem flagged `NEEDAFFIX` is **not** a word by itself: only the words its affixes make of it
+//!   are (`run` listed so that `runs` and `running` exist, and `run` meant to be wrong).
+//! - A prefix and a suffix that both say `Y` (they cross the product) make the word both of them
+//!   make — `write`, `re-` and `-s` give `rewrite`, `writes` **and** `rewrites`.
+//! - A word the dictionary forbids (`FORBIDDENWORD`) is never a word and is never suggested,
+//!   whichever stem and whichever affix makes it.
+//!
+//! What an affix says the word it makes *carries* (`SFX N aire aît/n'q'l'`, a chain of further
+//! affixes) is read past: it is not part of the word, and this reader makes no chain of affixes and
+//! no compound. A French elision is not a chain: the dictionary lists the prefix itself as a word
+//! (`j'`, `l'`, `c'`, `d'`), so a token is a word when an apostrophe in it separates a prefix a
+//! dictionary knows, apostrophe and all, from a word one knows (`j'ai`, `l'homme`); see
+//! [`Speller::is_word`]. Nothing joins beyond that one apostrophe, so a contraction the dictionary
+//! lists whole (`aujourd'hui`, `don't`) is still one word and is never taken apart.
+//!
 //! A word is accepted when **any** dictionary that is on accepts it ([`Speller::accept`]): the
 //! owner writes Canadian English and Canadian French in the same paragraph, and a word is not
 //! wrong for being in the other one.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use super::{Language, MAX_PERSONAL, ProofError, key};
+use super::{Language, MAX_PERSONAL, MAX_PERSONAL_WORD, ProofError, key};
 
 /// Most words one dictionary holds once its affixes are worked out; a dictionary that would hold
 /// more is cut there (a real one holds well under it).
@@ -42,15 +60,50 @@ const MAX_PROBES: usize = 20_000;
 /// be within two edits of it.
 const MOST_PER_DICTIONARY: usize = 8_000;
 
+/// Most flags one line of a `.dic` may name. A line that names more is cut there, which is what
+/// keeps a hostile dictionary from making one stem's affixes cost the square of a whole `.aff`.
+pub(super) const MAX_FLAGS: usize = 32;
+
+/// The flags of a `FLAG long` line: two characters a flag, no more than [`MAX_FLAGS`] of them.
+///
+/// Only as many characters as the cap needs are taken from `chars`: a hostile line of megabytes
+/// is not read to its end, and its pairs are not made into strings that would be thrown away.
+pub(super) fn long_flags(chars: impl Iterator<Item = char>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(MAX_FLAGS.min(8));
+    let mut chars = chars;
+    let mut taken = 0usize;
+    while taken < MAX_FLAGS {
+        let Some(first) = chars.next() else { break };
+        taken += 1;
+        let Some(second) = chars.next() else {
+            out.push(first.to_string());
+            break;
+        };
+        let mut pair = String::with_capacity(first.len_utf8() + second.len_utf8());
+        pair.push(first);
+        pair.push(second);
+        if pair != "/" {
+            out.push(pair);
+        }
+    }
+    out
+}
+
+/// Most rules of one kind (prefixes or suffixes) applied to one stem.
+const MAX_RULES_PER_STEM: usize = 32;
+
+/// Most prefix-and-suffix pairs worked out for one stem: a cross product is the square of the
+/// rules on either side, and this is what keeps it small.
+const MAX_CROSS: usize = 64;
+
 /// One language's words, sorted, as keys ([`key`]).
 #[derive(Clone, Debug, Default)]
 pub struct Dictionary {
     lang: Language,
     words: Vec<String>,
-    /// Stems that are not words by themselves (`NEEDAFFIX`): never a word, whatever they look like.
-    stems_only: HashSet<String>,
     /// Words the dictionary says are wrong (`FORBIDDENWORD`), such as a misspelling a dictionary
-    /// lists so that it can be suggested as corrected.
+    /// lists so that it can be suggested as corrected. A word here is never in `words`, and is
+    /// consulted once more when a word is asked about.
     forbidden: HashSet<String>,
     /// Words that are fine but not to be suggested.
     no_suggest: HashSet<String>,
@@ -90,65 +143,104 @@ impl Dictionary {
     }
 
     /// Reads a `.dic` with its `.aff`: the stems, then every word the affixes make of them.
+    ///
+    /// The dictionary is looked over twice: once for the words it forbids and the ones it will
+    /// not suggest, and then for its stems. A word the affixes make of one stem is therefore
+    /// refused when a stem further down the file forbids it, which one pass could not know.
     pub fn from_hunspell(lang: Language, aff: &str, dic: &str) -> Result<Dictionary, ProofError> {
         let flags = Flags::read(aff);
         let mut out = Dictionary { lang, loaded: true, ..Dictionary::default() };
-        let mut stems: Vec<(String, Vec<String>)> = Vec::with_capacity(4096);
-        for (n, line) in dic.lines().enumerate() {
-            // The first line is how many words follow, which is only ever a hint.
-            if n == 0 && line.trim().chars().all(|c| c.is_ascii_digit() || c.is_whitespace()) {
+        // Only a dictionary that says some word is wrong, or keeps one out of its suggestions,
+        // needs the first pass: the common one is read once.
+        if !flags.forbidden.is_empty() || !flags.no_suggest.is_empty() {
+            for (stem, own) in stems(dic, &flags) {
+                if flags.names(&own, &flags.forbidden) {
+                    out.forbidden.insert(key(stem));
+                }
+                if flags.names(&own, &flags.no_suggest) {
+                    out.no_suggest.insert(key(stem));
+                }
+            }
+        }
+        let mut read = 0usize;
+        for (stem, own) in stems(dic, &flags) {
+            read += 1;
+            if read > MAX_ENTRIES {
+                break;
+            }
+            if flags.names(&own, &flags.forbidden) {
+                // A wrong word, and every form of it: the flag is the entry's, not the spelling's.
                 continue;
             }
-            let line = line.trim_end_matches(['\r', '\n']).trim();
-            if line.is_empty() || line.starts_with('\t') || line.starts_with('#') {
-                continue;
-            }
-            let (stem, own) = match line.split_once('/') {
-                Some((stem, own)) => (stem.trim(), own.trim()),
-                None => (line, ""),
-            };
-            if stem.is_empty() || stem.chars().count() > MAX_STEM || stem.chars().any(|c| c.is_whitespace() || c.is_control()) {
-                continue;
-            }
-            let own = flags.split(own);
-            if own.iter().any(|f| f == &flags.need_affix) && !flags.need_affix.is_empty() {
-                out.stems_only.insert(key(stem));
-                stems.push((stem.to_string(), own));
-                continue;
-            }
-            if own.iter().any(|f| f == &flags.forbidden) && !flags.forbidden.is_empty() {
-                out.forbidden.insert(key(stem));
-            }
-            if own.iter().any(|f| f == &flags.no_suggest) && !flags.no_suggest.is_empty() {
-                out.no_suggest.insert(key(stem));
-            }
-            stems.push((stem.to_string(), own));
-            if stems.len() >= MAX_ENTRIES {
+            let prefix = flags.of(&own, true);
+            let suffix = flags.of(&own, false);
+            let bare = !flags.names(&own, &flags.need_affix);
+            let quiet = flags.names(&own, &flags.no_suggest);
+            out.add(stem, bare, quiet, &prefix, &suffix);
+            if out.words.len() >= MAX_ENTRIES {
                 break;
             }
         }
-        if stems.is_empty() {
+        if read == 0 {
             return Err(ProofError::Dictionary(lang.code().into()));
-        }
-        for (stem, own) in &stems {
-            out.words.push(key(stem));
-            for rule in flags.affixes_for(own) {
-                if let Some(word) = rule.apply(stem) {
-                    out.words.push(key(&word));
-                    if out.words.len() >= MAX_ENTRIES {
-                        break;
-                    }
-                }
-            }
         }
         // A stem listed twice, or two rules making the same word, is one word.
         out.words.sort_unstable();
         out.words.dedup();
-        out.words.retain(|w| !w.is_empty() && w.chars().count() <= MAX_STEM);
         if out.words.len() > MAX_ENTRIES {
             out.words.truncate(MAX_ENTRIES);
         }
         Ok(out)
+    }
+
+    /// Adds the words `stem` makes: itself when `bare`, then one of each affix, then both ends of
+    /// a cross product. `quiet` words are kept out of the suggestions.
+    fn add(&mut self, stem: &str, bare: bool, quiet: bool, prefixes: &[&Rule], suffixes: &[&Rule]) {
+        if bare {
+            self.push(stem, quiet);
+        }
+        for rule in prefixes {
+            if let Some(word) = rule.apply(stem) {
+                self.push(&word, quiet);
+            }
+        }
+        for rule in suffixes {
+            if let Some(word) = rule.apply(stem) {
+                self.push(&word, quiet);
+            }
+        }
+        let mut pairs = 0usize;
+        for pre in prefixes {
+            for suf in suffixes {
+                if pairs >= MAX_CROSS {
+                    return;
+                }
+                pairs += 1;
+                if !pre.cross || !suf.cross {
+                    continue;
+                }
+                // The end of the stem is what a suffix's condition is about, so the suffix goes
+                // on first and the prefix in front of what it leaves.
+                if let Some(made) = suf.apply(stem).and_then(|mid| pre.apply(&mid)) {
+                    self.push(&made, quiet);
+                }
+            }
+        }
+    }
+
+    /// Keeps `word`, unless it is too long, empty, or one the dictionary forbids.
+    fn push(&mut self, word: &str, quiet: bool) {
+        if self.words.len() >= MAX_ENTRIES {
+            return;
+        }
+        let word = key(word);
+        if word.is_empty() || word.chars().count() > MAX_STEM || self.forbidden.contains(&word) {
+            return;
+        }
+        if quiet {
+            self.no_suggest.insert(word.clone());
+        }
+        self.words.push(word);
     }
 
     /// Whether `word` (already a [`key`]) is one the dictionary knows.
@@ -158,7 +250,19 @@ impl Dictionary {
 
     /// Whether the dictionary knows `word` well enough that it is a word and no mistake.
     fn knows(&self, word: &str) -> bool {
+        // A forbidden word is not in `words` at all; the check is kept so that the one gate is
+        // this one, whatever a later change to loading does.
         !self.forbidden.contains(word) && self.has(word)
+    }
+
+    /// Whether the dictionary forbids `word`: a spelling it lists as wrong.
+    pub fn forbids(&self, word: &str) -> bool {
+        self.forbidden.contains(&key(word))
+    }
+
+    /// Whether the dictionary knows `word` but will not have it suggested.
+    pub fn is_quiet(&self, word: &str) -> bool {
+        self.no_suggest.contains(&key(word))
     }
 
     /// Every word of the dictionary, in order.
@@ -172,17 +276,45 @@ impl Dictionary {
     }
 }
 
+/// The stems of `dic` with the flags written after each one's `/`, in order: the count line, the
+/// blank lines and the lines that cannot be read are left out, and no more than [`MAX_ENTRIES`]
+/// lines are looked at.
+fn stems<'a>(dic: &'a str, flags: &'a Flags) -> impl Iterator<Item = (&'a str, Vec<String>)> + 'a {
+    dic.lines().take(MAX_ENTRIES).enumerate().filter_map(move |(n, line)| {
+        // The first line is how many words follow, which is only ever a hint.
+        if n == 0 && line.trim().chars().all(|c| c.is_ascii_digit() || c.is_whitespace()) {
+            return None;
+        }
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('\t') || line.starts_with('#') {
+            return None;
+        }
+        let (stem, own) = match line.split_once('/') {
+            Some((stem, own)) => (stem.trim(), own.trim()),
+            None => (line, ""),
+        };
+        if stem.is_empty() || stem.chars().count() > MAX_STEM || stem.chars().any(|c| c.is_whitespace() || c.is_control()) {
+            return None;
+        }
+        Some((stem, flags.split(own)))
+    })
+}
+
 /// Which flags of a `.dic` mean what, and the affixes they name.
 #[derive(Clone, Debug, Default)]
 struct Flags {
-    /// How flags are written in the `.dic`: one character (`FLAG` absent), two (`long`), a number
-    /// (`num`) or a character (`UTF-8`).
+    /// How flags are written in the `.dic`: one character (`FLAG` absent or `char`), two (`long`),
+    /// a number (`num`) or one character of any script (`UTF-8`).
     kind: FlagKind,
     need_affix: String,
     forbidden: String,
     no_suggest: String,
     /// The affixes, by the flag they are named by.
     rules: Vec<(String, Rule)>,
+    /// Where the prefixes of each flag are, and where its suffixes are: a stem's words are made
+    /// without walking the whole `.aff` for every one of them.
+    prefixes: HashMap<String, Vec<usize>>,
+    suffixes: HashMap<String, Vec<usize>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -191,6 +323,9 @@ enum FlagKind {
     Char,
     Long,
     Num,
+    /// `FLAG UTF-8`: flags are single characters of any script, which is how a dictionary written
+    /// for a language with its own letters names them (`á`, `ő`).
+    Utf8,
 }
 
 impl Flags {
@@ -211,6 +346,7 @@ impl Flags {
                     out.kind = match parts.next().unwrap_or_default() {
                         "long" => FlagKind::Long,
                         "num" => FlagKind::Num,
+                        utf8 if utf8.eq_ignore_ascii_case("UTF-8") => FlagKind::Utf8,
                         _ => FlagKind::Char,
                     };
                 }
@@ -234,20 +370,30 @@ impl Flags {
                         }
                         i += 1;
                         taken += 1;
-                        let (Some(strip), Some(add), condition) = (f.next(), f.next(), f.next().unwrap_or(".")) else { continue };
+                        let (Some(strip), Some(add), condition) = (f.next(), f.next(), f.next().unwrap_or(".")) else {
+                            continue;
+                        };
                         if out.rules.len() >= MAX_RULES || condition.chars().count() > MAX_CONDITION {
                             continue;
                         }
+                        // An affix may say which flags the word it makes carries
+                        // (`SFX N aire aît/n'q'l'm't's' plaire`): they are not part of the word,
+                        // and this reader makes no chain of affixes, so they are read past.
+                        let add = add.split('/').next().unwrap_or_default();
                         let rule = Rule {
                             prefix,
                             strip: if strip == "0" { String::new() } else { strip.to_string() },
-                            add: if add == "0" { String::new() } else { add.to_string() },
+                            add: if add == "0" || add.is_empty() { String::new() } else { add.to_string() },
                             condition: if condition.is_empty() || condition == "." { String::new() } else { condition.to_string() },
                             cross,
                         };
-                        if rule.strip.chars().count() <= MAX_STEM && rule.add.chars().count() <= MAX_STEM {
-                            out.rules.push((flag.to_string(), rule));
+                        if rule.strip.chars().count() > MAX_STEM || rule.add.chars().count() > MAX_STEM {
+                            continue;
                         }
+                        let at = out.rules.len();
+                        out.rules.push((flag.to_string(), rule));
+                        let into = if prefix { &mut out.prefixes } else { &mut out.suffixes };
+                        into.entry(flag.to_string()).or_default().push(at);
                     }
                 }
                 _ => {}
@@ -256,21 +402,37 @@ impl Flags {
         out
     }
 
-    /// The flags written after a stem's `/`, as they are.
+    /// The flags written after a stem's `/`, as they are, no more than [`MAX_FLAGS`] of them.
     fn split(&self, text: &str) -> Vec<String> {
         match self.kind {
-            FlagKind::Char | FlagKind::Long => {
-                let size = if self.kind == FlagKind::Char { 1 } else { 2 };
-                text.chars().collect::<Vec<char>>().chunks(size).map(|c| c.iter().collect::<String>()).filter(|f| !f.is_empty() && f != "/").collect()
-            }
-            FlagKind::Num => text.split(',').map(|f| f.trim().to_string()).filter(|f| !f.is_empty()).collect(),
+            FlagKind::Char | FlagKind::Utf8 => text.chars().filter(|c| *c != '/').map(|c| c.to_string()).take(MAX_FLAGS).collect(),
+            FlagKind::Long => long_flags(text.chars()),
+            FlagKind::Num => text.split(',').map(|f| f.trim().to_string()).filter(|f| !f.is_empty()).take(MAX_FLAGS).collect(),
         }
     }
 
-    /// The affix rules the flags `own` name.
-    fn affixes_for<'a>(&'a self, own: &[String]) -> impl Iterator<Item = &'a Rule> + 'a {
-        let own = own.to_vec();
-        self.rules.iter().filter(move |(flag, _)| own.iter().any(|o| o == flag)).map(|(_, rule)| rule)
+    /// Whether `own` names `flag` (an empty flag names nothing).
+    fn names(&self, own: &[String], flag: &str) -> bool {
+        !flag.is_empty() && own.iter().any(|f| f == flag)
+    }
+
+    /// The rules `own` names that are prefixes (or, when not, suffixes), at most
+    /// [`MAX_RULES_PER_STEM`] of them.
+    fn of<'a>(&'a self, own: &[String], prefix: bool) -> Vec<&'a Rule> {
+        let at = if prefix { &self.prefixes } else { &self.suffixes };
+        let mut out: Vec<&Rule> = Vec::new();
+        for flag in own {
+            let Some(rules) = at.get(flag) else { continue };
+            for n in rules {
+                if out.len() >= MAX_RULES_PER_STEM {
+                    return out;
+                }
+                if let Some((_, rule)) = self.rules.get(*n) {
+                    out.push(rule);
+                }
+            }
+        }
+        out
     }
 }
 
@@ -284,6 +446,8 @@ struct Rule {
     add: String,
     /// The stem's start (a prefix) or end (a suffix) this applies to; empty for any.
     condition: String,
+    /// Whether it may be joined to a rule at the other end of the stem (`SFX S Y`), which is what
+    /// makes `rewrites` of `write`.
     cross: bool,
 }
 
@@ -397,14 +561,42 @@ fn elements(condition: &str) -> Option<Vec<One>> {
     (!out.is_empty()).then_some(out)
 }
 
-/// The owner's dictionaries, all of them on at once, and the words they added: a word is right when
-/// any of them knows it, and a wrong word is looked at in every one of them for what could stand in
-/// its place.
+/// The words of every dictionary the settings turn on, and the words the owner added: a word is
+/// right when any of them knows it, and a wrong word is looked at in every dictionary for what
+/// could stand in its place.
+///
+/// The owner's own words are not a dictionary ([`Speller::is_empty`]): they say what is right, not
+/// what is wrong, so a speller with none of the language dictionaries loaded has nothing to check
+/// against and finds no places at all.
 #[derive(Clone, Debug, Default)]
 pub struct Speller {
     pub(super) dicts: Vec<Dictionary>,
     /// The owner's own words, as keys ([`key`]), sorted.
     pub(super) personal: Vec<String>,
+}
+
+/// Whether a check keeps what it finds, or only where it found it: the one thing that separates
+/// [`Speller::check`] from [`Speller::scan`], so that the reading of a token stays one reader's and
+/// the two answers cannot drift apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Mode {
+    /// A suggestion is worked out and kept for each place, as [`Speller::check`] answers.
+    Suggest,
+    /// Only the place is kept: a suggestion is asked for about one word, later.
+    Places,
+}
+
+impl Mode {
+    /// Whether a suggestion is to be worked out and kept.
+    fn suggests(self) -> bool {
+        self == Mode::Suggest
+    }
+}
+
+/// Whether the caller has called the work off: yes when it asked and said so, no when nothing
+/// asked at all.
+fn stopped(cancelled: Option<&dyn Fn() -> bool>) -> bool {
+    cancelled.is_some_and(|ask| ask())
 }
 
 impl Speller {
@@ -419,9 +611,16 @@ impl Speller {
         self.dicts.push(dict);
     }
 
-    /// Sets the personal words, as they are in the settings.
+    /// Sets the personal words, as they are in the settings. Only what is one word is kept: an
+    /// entry with a space or a control character inside it is not a word a token could ever be.
     pub fn set_personal(&mut self, words: &[String]) {
-        self.personal = words.iter().take(MAX_PERSONAL).map(|w| key(w)).filter(|w| !w.is_empty()).collect();
+        self.personal = words
+            .iter()
+            .filter(|w| super::personal_word_ok(w))
+            .map(|w| key(w.trim()))
+            .filter(|w| !w.is_empty() && w.chars().count() <= MAX_PERSONAL_WORD)
+            .take(MAX_PERSONAL)
+            .collect();
         self.personal.sort_unstable();
         self.personal.dedup();
     }
@@ -434,9 +633,10 @@ impl Speller {
         out
     }
 
-    /// Whether there is nothing to check against.
+    /// Whether there is no dictionary to check a word against. The owner's own words are not a
+    /// dictionary: they are accepted as words, but they cannot say that another word is wrong.
     pub fn is_empty(&self) -> bool {
-        self.dicts.iter().all(|d| d.is_empty()) && self.personal.is_empty()
+        self.dicts.iter().all(|d| d.is_empty())
     }
 
     /// The language that accepts `word`, if one does: the first of those asked for.
@@ -453,13 +653,46 @@ impl Speller {
     }
 
     /// Whether `word` is a word: any dictionary that is on says so, or the owner added it. A word
-    /// joined by a hyphen or a dot (`rendez-vous`, `aujourd’hui`, `example.org`) is a word when it is
-    /// one of a dictionary's own or when every part of it is one, so that a dictionary that lists the
-    /// parts is not made to look like one that does not.
+    /// joined by a hyphen or a dot (`rendez-vous`, `example.org`) is a word when it is one of a
+    /// dictionary's own or when every part of it is one, so that a dictionary that lists the parts
+    /// is not made to look like one that does not. A French elision is a word the same way: the
+    /// dictionary has the prefix as a word of its own (`j'`, `l'`), and the word after it is one,
+    /// so `j'ai` is `j'` and `ai` with the apostrophe kept between them.
     pub fn is_word(&self, word: &str) -> bool {
         if self.accept(word).is_some() {
             return true;
         }
+        if let Some((_, rest)) = self.elided(word)
+            && (self.accept(rest).is_some() || self.is_joined(rest))
+        {
+            return true;
+        }
+        self.is_joined(word)
+    }
+
+    /// Whether `word` is one of a dictionary's own after a French elision: where the word after the
+    /// first apostrophe begins, when the prefix up to and including it is a word a dictionary knows.
+    /// The prefix is kept whole, apostrophe and all, so a token with an apostrophe in it is never a
+    /// word merely because its letters are: only a prefix the dictionary has joins the rest.
+    fn elided<'a>(&self, word: &'a str) -> Option<(usize, &'a str)> {
+        for (at, c) in word.char_indices() {
+            if !matches!(c, '\'' | '\u{2019}' | '\u{2018}' | '\u{02bc}') {
+                continue;
+            }
+            // A word does not begin with the apostrophe, and what follows it must be a word.
+            let after = at.checked_add(c.len_utf8())?;
+            let prefix = word.get(..after)?;
+            let rest = word.get(after..)?;
+            if at == 0 || rest.is_empty() || self.accept(prefix).is_none() {
+                return None;
+            }
+            return Some((after, rest));
+        }
+        None
+    }
+
+    /// Whether `word` is several words joined by a hyphen or a dot, every one of them a word.
+    fn is_joined(&self, word: &str) -> bool {
         let mut parts = 0usize;
         for part in word.split(['-', '.', '\u{2010}', '\u{2011}']) {
             let part = part.trim_matches(|c: char| !c.is_alphanumeric());
@@ -475,23 +708,97 @@ impl Speller {
     }
 
     /// The spelling mistakes of `text`, with what could stand in their place.
+    ///
+    /// Nothing at all without a dictionary: the owner's own words cannot say that any other word
+    /// is wrong, and a window that underlined a whole message would be lying about it.
     pub fn check(&self, text: &str) -> Vec<super::Diagnostic> {
-        let mut out: Vec<super::Diagnostic> = Vec::new();
-        for w in super::words(text) {
-            if out.len() >= super::MAX_DIAGNOSTICS {
-                break;
-            }
-            if let Some(d) = self.bad(text, w) {
-                out.push(d);
-            }
-        }
-        out
+        self.scan_in(Mode::Suggest, text, None).unwrap_or_default()
     }
 
-    /// `word` when nothing accepts it, with its suggestions: what one word is worth.
+    /// The spelling mistakes of `text` alone, keeping no suggestion in any of them: what a window
+    /// that checks as the owner types asks for, where a suggestion is asked about one word when
+    /// the owner clicks it and never for every word of the draft.
+    ///
+    /// The places are the ones [`Speller::check`] finds, span for span, with the same kind,
+    /// source and language — one reader answers both ([`Speller::scan_in`]) — and only the
+    /// `suggestions` are empty. [`Speller::suggest`] answers about one of them afterwards, in
+    /// exactly the words `check` would have kept.
+    pub fn scan(&self, text: &str) -> Vec<super::Diagnostic> {
+        self.scan_in(Mode::Places, text, None).unwrap_or_default()
+    }
+
+    /// The same scan, called off when `cancelled` says so: `None` when it was called off, `Some`
+    /// with the whole answer when it was not. A called-off scan is not a clean one.
+    ///
+    /// `cancelled` is asked before any work begins, once before each word, and once more before
+    /// the answer is given; when any answer is yes the work stops and `None` is returned, so a
+    /// partly worked-out list is never handed back as a complete one. Both are bounded as
+    /// [`Speller::check`] is: the first [`super::MAX_CHECKED`] characters, [`super::MAX_DIAGNOSTICS`]
+    /// places.
+    pub fn scan_cancellable(&self, text: &str, cancelled: &dyn Fn() -> bool) -> Option<Vec<super::Diagnostic>> {
+        self.scan_in(Mode::Places, text, Some(cancelled))
+    }
+
+    /// The one reader both answers come from: `mode` says whether a suggestion is kept in each
+    /// place, and `cancelled` (when there is one) whether the work is still wanted.
+    fn scan_in(&self, mode: Mode, text: &str, cancelled: Option<&dyn Fn() -> bool>) -> Option<Vec<super::Diagnostic>> {
+        // Asked before any work: a check nobody wants is not started.
+        if stopped(cancelled) {
+            return None;
+        }
+        let mut out: Vec<super::Diagnostic> = Vec::new();
+        if !self.is_empty() {
+            for w in super::words(text) {
+                // Asked between the words, so a long draft is let go of at the next one.
+                if stopped(cancelled) {
+                    return None;
+                }
+                if out.len() >= super::MAX_DIAGNOSTICS {
+                    break;
+                }
+                if let Some(d) = self.bad_in(mode, text, w) {
+                    out.push(d);
+                }
+            }
+        }
+        // Asked once more before the answer is given: what was half worked out is not an answer.
+        if stopped(cancelled) {
+            return None;
+        }
+        Some(out)
+    }
+
+    /// `word` when nothing accepts it, with its suggestions: what one word is worth. `None`
+    /// without a dictionary, for the same reason [`Speller::check`] finds nothing.
     pub fn bad(&self, text: &str, word: super::Word<'_>) -> Option<super::Diagnostic> {
-        // A hyphen or a dot joins words that are each checked as one: `rendez-vous` is two, and
-        // its halves are looked at where they are, so that a correction replaces only that part.
+        self.bad_in(Mode::Suggest, text, word)
+    }
+
+    /// [`Speller::bad`], which also says whether a suggestion is kept in what it finds. Every rule
+    /// about a token — the dictionaries that accept it, the elision, the joined word and the parts
+    /// of one — is read here and nowhere else, so the eager and fast answers cannot drift.
+    fn bad_in(&self, mode: Mode, text: &str, word: super::Word<'_>) -> Option<super::Diagnostic> {
+        if self.is_empty() {
+            return None;
+        }
+        // A word the dictionary knows as it is written is not looked into: `rendez-vous` is one
+        // word of a French dictionary, and its halves are not words of it.
+        if self.is_word(word.text) {
+            return None;
+        }
+        // What follows a French elision is the part a correction replaces: `j'aimee` is wrong after
+        // its prefix, and the prefix itself is not offered in place of it.
+        if let Some((after, rest)) = self.elided(word.text) {
+            let start = word.span.start.saturating_add(after);
+            let span = super::Span::of(text, start, word.span.end)?;
+            return self.bad_word_in(mode, text, super::Word { text: rest, span });
+        }
+        self.bad_word_in(mode, text, word)
+    }
+
+    /// One word, or the parts of one nothing knows: `rendez-vuos` is two, and its halves are looked
+    /// at where they are, so that a correction replaces only that part.
+    fn bad_word_in(&self, mode: Mode, text: &str, word: super::Word<'_>) -> Option<super::Diagnostic> {
         let parts: Vec<(usize, &str)> = word
             .text
             .split_inclusive(['-', '.', '_'])
@@ -509,19 +816,23 @@ impl Speller {
                     continue;
                 }
                 let one = super::Word { text: piece, span };
-                if let Some(d) = self.bad_single(text, one) {
+                if let Some(d) = self.bad_single_in(mode, text, one) {
                     return Some(d);
                 }
             }
             return None;
         }
-        if self.is_word(word.text) { None } else { self.bad_single(text, word) }
+        self.bad_single_in(mode, text, word)
     }
 
-    fn bad_single(&self, _text: &str, word: super::Word<'_>) -> Option<super::Diagnostic> {
+    fn bad_single_in(&self, mode: Mode, _text: &str, word: super::Word<'_>) -> Option<super::Diagnostic> {
         let lang = self.dicts.first().map_or(Language::EnCa, |d| d.lang);
         let mut d = super::Diagnostic::new(word.span, super::Kind::Spelling, super::Source::Local);
         d.language = Some(lang);
+        // A fast scan keeps the place and only the place: it never asks for a suggestion.
+        if !mode.suggests() {
+            return Some(d);
+        }
         let suggestions = self.suggest(word.text, 5);
         Some(if suggestions.is_empty() { d } else { d.suggesting(suggestions) })
     }
@@ -558,7 +869,7 @@ impl Speller {
                 }
                 probes += 1;
                 let size = candidate.chars().count();
-                if size.abs_diff(letters) > 2 || candidate == &written || dict.no_suggest.contains(candidate) {
+                if size.abs_diff(letters) > 2 || candidate == &written || dict.no_suggest.contains(candidate) || dict.forbidden.contains(candidate) {
                     continue;
                 }
                 let Some(distance) = distance(&written, candidate, 2) else { continue };
@@ -628,20 +939,26 @@ fn distance(a: &str, b: &str, most: u8) -> Option<u8> {
         let mut row_least = usize::MAX;
         for (j, cb) in b.iter().enumerate() {
             let swap = if i > 0 && j > 0 && *ca == b.get(j - 1).copied().unwrap_or_default() && a.get(i - 1) == Some(cb) {
-                before_before.get(j.saturating_sub(1)).copied().unwrap_or(usize::MAX)
+                // Two neighbours the wrong way round are one edit, not none.
+                before_before.get(j.saturating_sub(1)).copied().unwrap_or(usize::MAX).saturating_add(1)
             } else {
                 usize::MAX
             };
+            // What it takes to get here: a letter changed (the row before, one column before), one
+            // taken out of `a` (the row before, this column) or one put in from `b` (this row, the
+            // column before), or two neighbours the wrong way round (two rows and two columns back).
             let value = (before.get(j).copied().unwrap_or(0) + usize::from(ca != cb))
+                .min(before.get(j + 1).copied().unwrap_or(0) + 1)
                 .min(now.get(j).copied().unwrap_or(0) + 1)
-                .min(now.get(j + 1).copied().unwrap_or(0) + 1)
                 .min(swap);
             if let Some(cell) = now.get_mut(j + 1) {
                 *cell = value;
             }
             row_least = row_least.min(value);
         }
-        if row_least > usize::from(most) {
+        // A row's least is a lower bound for the answer only once a row can take off no more than
+        // one edit for each row left: both, so that a word within `most` is never missed.
+        if row_least > usize::from(most).saturating_add(a.len() - i - 1) {
             return None;
         }
         before_before = std::mem::replace(&mut before, std::mem::replace(&mut now, vec![0; b.len() + 1]));

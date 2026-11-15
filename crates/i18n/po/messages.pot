@@ -573,7 +573,7 @@ msgid "Actual Size"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/forms/junk.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/forms/junk.rs
 msgid "Add"
 msgstr ""
 
@@ -675,6 +675,11 @@ msgid "Add a task to {address} (it waits here until To Do is allowed)"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Add a word"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup.rs
 msgid "Add an account"
 msgstr ""
@@ -724,6 +729,11 @@ msgstr ""
 #. command label, ribbon
 #: crates/engine/src/cmd/people.rs crates/ui-egui/src/ribbon.rs
 msgid "Add to Contacts"
+msgstr ""
+
+#. command label, interface, name
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Add to Dictionary"
 msgstr ""
 
 #. command label, interface
@@ -1341,6 +1351,11 @@ msgid "Asking the server…"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Asking…"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup/help.rs
 msgid "Asks for mail alone, without the calendar and contacts, which can be connected later"
 msgstr ""
@@ -1680,8 +1695,23 @@ msgid "Bring in"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Browse…"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/chrome.rs
 msgid "Building the index search answers from; until it is done, some older mail is searched more slowly"
+msgstr ""
+
+#. command label
+#: crates/ui-egui/src/lib.rs
+msgid "Built-in Proofing Server"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Built-in server:"
 msgstr ""
 
 #. command label, ribbon
@@ -1862,8 +1892,23 @@ msgid "Cancel This Meeting?"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Cancel download"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/calendar_view.rs
 msgid "Cancelled"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Cancelling…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Cancelling… the work stops once its cleanup has finished."
 msgstr ""
 
 #. interface, name
@@ -1899,6 +1944,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/forms.rs crates/ui-egui/src/security.rs
 msgid "Certificates"
+msgstr ""
+
+#. command label, interface, name
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Change"
 msgstr ""
 
 #. ribbon
@@ -1956,6 +2006,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/backstage.rs
 msgid "Change this account's name, sign-in and mail to keep offline"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Change to"
 msgstr ""
 
 #. interface
@@ -2035,6 +2090,11 @@ msgstr ""
 msgid "Check Calendar Connection"
 msgstr ""
 
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Check Every Rule Again"
+msgstr ""
+
 #. command label, interface
 #: crates/engine/src/cmd/compose.rs crates/ui-egui/src/forms.rs
 msgid "Check Names"
@@ -2045,9 +2105,19 @@ msgstr ""
 msgid "Check Now"
 msgstr ""
 
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Check Spelling"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/updates.rs
 msgid "Check daily for new versions of MailCraft, and download and install them when you quit? Only GitHub is asked; nothing about you or your mail is sent."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check every rule again"
 msgstr ""
 
 #. command label
@@ -2066,8 +2136,28 @@ msgid "Check for new versions"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/proof.rs
+msgid "Check grammar with a LanguageTool server"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check installation"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check spelling as you write"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup.rs
 msgid "Check the account's settings"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check while typing, not only when asked"
 msgstr ""
 
 #. interface
@@ -2111,7 +2201,7 @@ msgid "Checking: the report comes in a moment…"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/updates.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/proof_dialog.rs crates/ui-egui/src/updates.rs
 msgid "Checking…"
 msgstr ""
 
@@ -2240,8 +2330,8 @@ msgstr ""
 msgid "Clipboard"
 msgstr ""
 
-#. interface, ribbon
-#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/account_setup/exchange.rs crates/ui-egui/src/compose.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/find_replace.rs crates/ui-egui/src/folder_properties.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/import_pst.rs crates/ui-egui/src/meeting_dialogs.rs crates/ui-egui/src/meeting_dialogs/share.rs crates/ui-egui/src/merge_contacts.rs crates/ui-egui/src/reminders.rs crates/ui-egui/src/report_problem.rs crates/ui-egui/src/ribbon.rs crates/ui-egui/src/symbol.rs crates/ui-egui/src/sync_panel.rs crates/ui-egui/src/tasks_view.rs crates/ui-egui/src/view_source.rs
+#. interface, name, ribbon
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/account_setup/exchange.rs crates/ui-egui/src/compose.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/find_replace.rs crates/ui-egui/src/folder_properties.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/import_pst.rs crates/ui-egui/src/meeting_dialogs.rs crates/ui-egui/src/meeting_dialogs/share.rs crates/ui-egui/src/merge_contacts.rs crates/ui-egui/src/proof_dialog.rs crates/ui-egui/src/reminders.rs crates/ui-egui/src/report_problem.rs crates/ui-egui/src/ribbon.rs crates/ui-egui/src/symbol.rs crates/ui-egui/src/sync_panel.rs crates/ui-egui/src/tasks_view.rs crates/ui-egui/src/view_source.rs
 msgid "Close"
 msgstr ""
 
@@ -2268,6 +2358,11 @@ msgstr ""
 #. command label
 #: crates/engine/src/cmd/signature.rs
 msgid "Close Signature"
+msgstr ""
+
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Close Spelling & Grammar"
 msgstr ""
 
 #. command label
@@ -3023,6 +3118,21 @@ msgstr ""
 msgid "Diagram"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Dictionaries"
+msgstr ""
+
+#. command label
+#: crates/ui-egui/src/lib.rs
+msgid "Dictionary Folder"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Dictionary folder"
+msgstr ""
+
 #. command label
 #: crates/engine/src/cmd/mail.rs
 msgid "Digital Signature"
@@ -3193,8 +3303,8 @@ msgstr ""
 msgid "Double-click to open {name}; right-click to save it"
 msgstr ""
 
-#. ribbon location
-#: crates/engine/src/cmd/send_receive.rs
+#. interface, ribbon location
+#: crates/engine/src/cmd/send_receive.rs crates/ui-egui/src/backstage.rs
 msgid "Download"
 msgstr ""
 
@@ -3226,6 +3336,11 @@ msgstr ""
 #. command label
 #: crates/ui-egui/src/lib.rs
 msgid "Download Pictures in Mail Automatically"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Download fetches the official LanguageTool server archive over HTTPS from its own project and unpacks it into MailCraft's own folder. The licences and notices that come with LanguageTool stay in the installed copy, which is where they remain; the archive itself is not kept after that. Nothing is downloaded until you press Download."
 msgstr ""
 
 #. interface
@@ -3308,6 +3423,16 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/graph_fetch.rs
 msgid "Downloading {done} of {all} · {large} large messages download when opened"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Downloading… {percent}% ({so_far} of {total})"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Downloading… {so_far} so far"
 msgstr ""
 
 #. interface, ribbon
@@ -3543,6 +3668,16 @@ msgstr ""
 msgid "Ends before it starts"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "English (Canada)"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "English (United States)"
+msgstr ""
+
 #. ribbon
 #: crates/ui-egui/src/ribbon.rs
 msgid "Equation"
@@ -3586,6 +3721,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/forms.rs
 msgid "Every weekday"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Every word is looked at against every dictionary that is on, and a word is right when any of them knows it: English and French in one sentence need no switching."
 msgstr ""
 
 #. interface
@@ -3710,6 +3850,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/reading/warnings.rs
 msgid "External"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Extracting… how much is left is not known."
 msgstr ""
 
 #. interface
@@ -4121,6 +4266,16 @@ msgstr ""
 msgid "Free and Busy Times"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "French (Canada)"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "French (France)"
+msgstr ""
+
 #. date and time, name
 #: crates/i18n/src/date.rs crates/time/src/lib.rs
 msgid "Fri"
@@ -4459,6 +4614,16 @@ msgstr ""
 msgid "Grab bag"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "Grammar is checked by a LanguageTool server; this build has none to ask."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Grammar:"
+msgstr ""
+
 #. interface, name
 #: crates/ui-egui/src/backstage.rs crates/ui-egui/src/theme/accent.rs
 msgid "Graphite"
@@ -4706,6 +4871,21 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/account_setup.rs
 msgid "If you have one, paste its application (client) ID here. It comes from a Microsoft Entra app registration: a public client with the redirect URI http://localhost, for accounts in any directory and personal accounts."
+msgstr ""
+
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Ignore Grammar Rule"
+msgstr ""
+
+#. command label, interface, name
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Ignore Once"
+msgstr ""
+
+#. interface, name
+#: crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Ignore This Rule"
 msgstr ""
 
 #. ribbon, ribbon location
@@ -5089,6 +5269,21 @@ msgid "Issued to"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "It could not be unpacked into MailCraft's folder."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "It did not answer in time."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "It did not start."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 msgid "It goes as mail from the Outbox at the next Send/Receive, with the item attached as an iCalendar file."
 msgstr ""
@@ -5233,6 +5428,26 @@ msgstr ""
 #. date and time
 #: crates/i18n/src/date.rs
 msgid "January"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer is needed to start it."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer is not installed. MailCraft never installs Java: install it yourself, then press Check installation."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer is not installed. MailCraft never installs Java: install it yourself."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer: found."
 msgstr ""
 
 #. interface
@@ -5382,6 +5597,11 @@ msgstr ""
 
 #. interface
 #: crates/ui-egui/src/backstage.rs
+msgid "Kept as it is: the built-in server is the one in use."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
 msgid "Kept in the system's credential store, never in the mailbox or its settings. Without it you sign in again each time MailCraft starts."
 msgstr ""
 
@@ -5418,6 +5638,11 @@ msgstr ""
 #. interface, ribbon
 #: crates/ui-egui/src/backstage.rs crates/ui-egui/src/ribbon.rs
 msgid "Language"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "LanguageTool needs Java 17 or newer, which MailCraft does not download or install."
 msgstr ""
 
 #. interface
@@ -5488,6 +5713,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/sync_panel.rs
 msgid "Leave this account out of this Send/Receive"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Let MailCraft download and run LanguageTool on this computer"
 msgstr ""
 
 #. interface
@@ -5751,6 +5981,11 @@ msgid "Mail, calendar, people and tasks, written from scratch in Rust. It runs n
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "MailCraft can fetch the official LanguageTool server and keep it in MailCraft's own folder. It needs Java 17 or newer, which MailCraft does not install. Nothing is checked, downloaded, started, or stopped except by a button below."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/graph_switch.rs
 msgid "MailCraft can now keep {account} in step with Microsoft through Microsoft Graph, the way Outlook on the web does, instead of IMAP. Your folders, flags, categories and drafts then match what you see in Outlook, and your mail keeps coming even where your organisation has turned IMAP off."
 msgstr ""
@@ -5763,6 +5998,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 msgid "MailCraft can't sign in to this server this way yet (it wants Kerberos). Ask your administrator whether it can take a user name and password over an encrypted connection."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "MailCraft could not verify the LanguageTool files. The checksum pinned in this MailCraft build and the installed-file manifest were computed from the official HTTPS archive when the pin was prepared; they are not signed or supplied by upstream. An existing installation is never overwritten, and temporary files are cleaned up when possible. Check installation looks at what is on this computer."
 msgstr ""
 
 #. interface
@@ -6313,7 +6553,7 @@ msgid "More about this"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/forms.rs crates/ui-egui/src/ribbon.rs
+#: crates/ui-egui/src/compose.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/ribbon.rs
 msgid "More commands"
 msgstr ""
 
@@ -6477,6 +6717,11 @@ msgstr ""
 #. interface, name
 #: crates/engine/src/session.rs crates/ui-egui/src/folder_properties.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/meeting_dialogs/share.rs
 msgid "Name"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "Name the grammar server's address first."
 msgstr ""
 
 #. interface
@@ -6971,6 +7216,11 @@ msgid "No such account"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "No suggestions"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/credits.rs
 msgid "No testers credited yet."
 msgstr ""
@@ -7026,7 +7276,7 @@ msgid "None"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/forms.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/forms.rs
 msgid "None yet."
 msgstr ""
 
@@ -7093,6 +7343,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/forms.rs
 msgid "Not in Outlook's list: no colour there"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Not in dictionary:"
 msgstr ""
 
 #. interface
@@ -7243,6 +7498,11 @@ msgstr ""
 #. date and time
 #: crates/i18n/src/date.rs
 msgid "October"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Off: Review › Spelling & Grammar checks the message when it is asked to."
 msgstr ""
 
 #. name
@@ -8127,8 +8387,13 @@ msgid "Promotions"
 msgstr ""
 
 #. ribbon, ribbon location
-#: crates/engine/src/cmd/writing_tools.rs crates/ui-egui/src/ribbon.rs
+#: crates/engine/src/cmd/proof.rs crates/engine/src/cmd/writing_tools.rs crates/ui-egui/src/ribbon.rs
 msgid "Proofing"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Proofing languages"
 msgstr ""
 
 #. ribbon, ribbon location
@@ -8306,6 +8571,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/auto_replies.rs
 msgid "Reading your automatic replies from the server…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Reading: {names}"
 msgstr ""
 
 #. name
@@ -8544,6 +8814,11 @@ msgstr ""
 msgid "Remove from Calendar"
 msgstr ""
 
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Remove from Dictionary"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/people_view.rs
 msgid "Remove from Favorites"
@@ -8552,6 +8827,11 @@ msgstr ""
 #. command label
 #: crates/engine/src/cmd/junk.rs
 msgid "Remove from Safe or Blocked Senders"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Remove it from the dictionary"
 msgstr ""
 
 #. interface
@@ -8790,7 +9070,7 @@ msgid "Reverse the order"
 msgstr ""
 
 #. ribbon location
-#: crates/engine/src/cmd/writing_tools.rs
+#: crates/engine/src/cmd/proof.rs crates/engine/src/cmd/writing_tools.rs
 msgid "Review"
 msgstr ""
 
@@ -8969,7 +9249,7 @@ msgid "Saturday"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/signatures.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/backstage.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/signatures.rs
 msgid "Save"
 msgstr ""
 
@@ -9687,6 +9967,11 @@ msgid "September"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Server"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup.rs
 msgid "Server Certificate"
 msgstr ""
@@ -10341,7 +10626,29 @@ msgstr ""
 
 #. ribbon
 #: crates/ui-egui/src/ribbon.rs
+msgid ""
+"Spelling &\n"
+"Grammar"
+msgstr ""
+
+#. command label, interface
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/backstage.rs crates/ui-egui/src/dialogs.rs
 msgid "Spelling & Grammar"
+msgstr ""
+
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Spelling & Grammar Settings"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Spelling check is complete."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "Spelling is checked by the host, and this build has none to ask."
 msgstr ""
 
 #. interface
@@ -10375,12 +10682,17 @@ msgid "Start over"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Start server"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/auto_replies.rs
 msgid "Start time:"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/sync_panel.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/sync_panel.rs
 msgid "Starting…"
 msgstr ""
 
@@ -10440,6 +10752,11 @@ msgid "Stop processing more rules"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Stop server"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/chrome.rs crates/ui-egui/src/sync_panel.rs
 msgid "Stop this Send/Receive; what has arrived stays"
 msgstr ""
@@ -10470,8 +10787,13 @@ msgid "Stopped; carries on from here next time"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/chrome.rs crates/ui-egui/src/lib.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/chrome.rs crates/ui-egui/src/lib.rs
 msgid "Stopping…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Stopping… the server stops once the helper has been reaped."
 msgstr ""
 
 #. interface
@@ -10487,6 +10809,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/backstage.rs
 msgid "Stronger text and edges, in the light or the dark theme."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Style:"
 msgstr ""
 
 #. ribbon
@@ -10522,6 +10849,11 @@ msgstr ""
 #. command label
 #: crates/engine/src/cmd/compose.rs
 msgid "Suggest Recipients"
+msgstr ""
+
+#. command label, interface
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Suggestions"
 msgstr ""
 
 #. date and time, name
@@ -10730,6 +11062,11 @@ msgid "Tentatively accepted on {when}"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Test the connection"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/credits.rs
 msgid "Testers are credited when they say so; see docs/contributors.md."
 msgstr ""
@@ -10800,6 +11137,16 @@ msgid "That file isn't a key file: it is empty, or larger than one is."
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "That folder's path holds a NUL character, which no folder may have. Nothing was changed: the folder in the settings stays as it was."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "That folder's path is longer than 1024 bytes, which is the most a setting keeps. Nothing was changed: the folder in the settings stays as it was."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/reading/remote.rs
 msgid "That is not a domain"
 msgstr ""
@@ -10845,6 +11192,11 @@ msgid "That key is on the card already"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/proof.rs
+msgid "That server is on another computer, and File › Options does not allow one."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/report_problem.rs
 msgid "That's as much as a link to GitHub can carry: add the rest on GitHub once the page is open."
 msgstr ""
@@ -10872,6 +11224,21 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 msgid "The Entire Series"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The Java on this computer is older than 17."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The Java on this computer is older than 17. LanguageTool needs Java 17 or newer, installed separately; MailCraft will not install it."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The Java on this computer is older than 17. LanguageTool needs Java 17 or newer, installed separately; MailCraft will not install it. Install it yourself, then press Check installation."
 msgstr ""
 
 #. interface
@@ -10962,6 +11329,26 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/opened_message.rs
 msgid "The browser opens no files from the system"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "The built-in grammar server is not running."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "The built-in grammar server's address is not one this computer may use."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The built-in server is busy with another request; nothing else was started."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The built-in server is not available in this build or on this computer, so there is nothing here to check, download, or start."
 msgstr ""
 
 #. what a command says
@@ -11176,6 +11563,21 @@ msgid "The diagnostics weren't saved, so GitHub's page wasn't opened. Try again,
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The download did not finish."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The downloaded archive could not be read, so nothing was installed. An existing installation is never overwritten, and temporary files are cleaned up when possible. Check installation looks at what is on this computer."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The downloaded archive could not be read."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/lib.rs
 msgid "The draft stays in Drafts. {why}"
 msgstr ""
@@ -11298,6 +11700,16 @@ msgid "The key was removed from this computer."
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The last operation did not finish, and no further detail was reported. Check installation looks at what is on this computer; nothing is repaired or replaced automatically."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The last operation was cancelled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/favorites_sync.rs
 msgid "The link is on the clipboard: send it to your organisation's administrator"
 msgstr ""
@@ -11370,6 +11782,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/attachment_open.rs
 msgid "The message isn't there any more"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The message text is sent only to a LanguageTool server on this computer. Remote grammar servers are not supported."
 msgstr ""
 
 #. interface
@@ -11565,6 +11982,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 msgid "The server answered, but not as an Exchange server does. Check its address in Server settings."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "The server answered:"
 msgstr ""
 
 #. interface
@@ -11867,6 +12289,11 @@ msgstr ""
 msgid "There is no earlier version to go back to."
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "There is no installed copy to start."
+msgstr ""
+
 #. what a command says
 #: crates/engine/src/cmd/calendar_settings.rs
 msgid "There is no other calendar to lay it over."
@@ -12128,8 +12555,28 @@ msgid "This build can't sign in to this kind of account. Use the desktop app."
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "This build cannot run a built-in LanguageTool server. Turn this switch off to use the address kept in Server: install LanguageTool yourself and name its address there."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "This build cannot run the built-in grammar server."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/updates.rs
 msgid "This build doesn't check for new versions."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "This build has no folder dialog: type the folder instead."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "This build has no grammar server to ask."
 msgstr ""
 
 #. interface
@@ -12145,6 +12592,11 @@ msgstr ""
 #. what a command says
 #: crates/engine/src/private_keys.rs
 msgid "This certificate's key is of a kind MailCraft doesn't use: only ECDSA on P-256 or P-384 is imported here."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "This computer cannot perform that operation."
 msgstr ""
 
 #. interface
@@ -13092,6 +13544,11 @@ msgid "Use an app password instead"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Use installed dictionaries"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/calendar_view.rs
 msgid "Use my own working hours"
 msgstr ""
@@ -13302,6 +13759,11 @@ msgid "What to do next"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "What was downloaded did not match the checksum this build pins for the official archive."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/graph_fetch.rs
 msgid "What was waiting for the form to be closed was called off: another download took its place."
 msgstr ""
@@ -13371,6 +13833,16 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/merge_contacts.rs
 msgid "Where they differ, the kept contact has:"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Whether Java 17 or newer is installed is not known: MailCraft has not looked yet, or found a Java it could not probe. Check installation looks again. MailCraft does not install Java."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Whether Java 17 or newer is installed is not known: MailCraft has not looked yet, or found a Java it could not probe. MailCraft does not install Java."
 msgstr ""
 
 #. what a command says
@@ -13845,6 +14317,11 @@ msgid "Your own name."
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Your own words"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/mail_view.rs
 msgid "Z on top"
 msgstr ""
@@ -14205,9 +14682,19 @@ msgstr ""
 msgid "can't be read"
 msgstr ""
 
-#. what a command says
-#: crates/engine/src/import_tree.rs
+#. interface, what a command says
+#: crates/engine/src/import_tree.rs crates/ui-egui/src/backstage.rs
 msgid "cancelled"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "cancelling…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "checking the installation…"
 msgstr ""
 
 #. what a command says
@@ -14250,6 +14737,11 @@ msgstr ""
 msgid "day"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "downloading…"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs crates/proto/src/imap/password.rs
 msgid "enter a password to sign in"
@@ -14263,6 +14755,16 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/reading/remote.rs
 msgid "everybody at @{domain}"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "extracting…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "failed"
 msgstr ""
 
 #. folder name
@@ -14361,6 +14863,11 @@ msgstr ""
 #. why a command can't run
 #: crates/engine/src/cmd/calendar/invitation.rs
 msgid "incomplete"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "installed, not running"
 msgstr ""
 
 #. interface
@@ -14774,6 +15281,21 @@ msgid "not allowed on the server yet: File › Info › Ask again"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "not available on this computer"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "not checked yet"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "not installed"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/ews_setup.rs
 msgid "not known until the first Send/Receive"
 msgstr ""
@@ -14898,6 +15420,11 @@ msgstr ""
 msgid "replies can go to at most {n} addresses"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "running"
+msgstr ""
+
 #. name
 #: crates/engine/src/agent.rs
 msgid "safe"
@@ -14968,9 +15495,29 @@ msgstr ""
 msgid "someone@example.org or @example.org"
 msgstr ""
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "starting…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "stopped"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "stopping…"
+msgstr ""
+
 #. what a command says
 #: crates/engine/src/cmd/calendar.rs
 msgid "that event doesn't repeat"
+msgstr ""
+
+#. what a command says
+#: crates/model/src/rich/body.rs
+msgid "that is not a stretch of the text"
 msgstr ""
 
 #. what a command says
@@ -15898,6 +16445,11 @@ msgstr ""
 msgid "this series has too many changed days"
 msgstr ""
 
+#. what a command says
+#: crates/engine/src/cmd/signature.rs
+msgid "this session has no signature editor left to open"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/forms.rs
 msgid "time"
@@ -16547,9 +17099,14 @@ msgstr ""
 msgid "{not_sending_yet}: send this message from another account, or save it as a draft"
 msgstr ""
 
-#. what a command says
-#: crates/model/src/message.rs
+#. interface, what a command says
+#: crates/model/src/message.rs crates/ui-egui/src/backstage.rs
 msgid "{n} KB"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "{n} MB"
 msgstr ""
 
 #. interface
@@ -16593,6 +17150,11 @@ msgid "{n} byte"
 msgid_plural "{n} bytes"
 msgstr[0] ""
 msgstr[1] ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "{n} bytes"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/import_pst.rs
@@ -16694,6 +17256,13 @@ msgstr[1] ""
 #: crates/ui-egui/src/import_tree.rs
 msgid "{n} folder"
 msgid_plural "{n} folders"
+msgstr[0] ""
+msgstr[1] ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "{n} grammar rule is quiet"
+msgid_plural "{n} grammar rules are quiet"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -16948,7 +17517,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. interface
-#: crates/ui-egui/src/import_pst.rs
+#: crates/ui-egui/src/import_pst.rs crates/ui-egui/src/proof.rs
 msgid "{n} note"
 msgid_plural "{n} notes"
 msgstr[0] ""

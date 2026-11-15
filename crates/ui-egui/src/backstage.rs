@@ -904,6 +904,7 @@ fn about(app: &mut MailApp, ui: &mut Ui, t: &Tokens) {
 /// Nothing of a message is on this page, and no message is sent by it: the connection test asks the
 /// grammar server one made-up sentence and says what came back.
 fn proofing(app: &mut MailApp, ui: &mut Ui, t: &Tokens) {
+    use crate::proof::language_label;
     use mailcraft_model::proof::Language;
     section(ui, tl!("Spelling & Grammar"), t);
     let settings = app.session.prefs.proof.clone();
@@ -931,7 +932,7 @@ fn proofing(app: &mut MailApp, ui: &mut Ui, t: &Tokens) {
         ui.label(tl!("Dictionaries"));
         for language in Language::ALL {
             let mut on = settings.languages.contains(&language);
-            if ui.checkbox(&mut on, language.name()).changed() {
+            if ui.checkbox(&mut on, language_label(language)).changed() {
                 let mut languages: Vec<Language> = settings.languages.clone();
                 if on && !languages.contains(&language) {
                     languages.push(language);
@@ -943,6 +944,28 @@ fn proofing(app: &mut MailApp, ui: &mut Ui, t: &Tokens) {
                     set(app, json!({"languages": codes}));
                 }
             }
+        }
+    });
+    row(ui, tl!("Dictionary folder"), |ui| {
+        // The folder is a field the owner edits and Save is the one thing that writes it: losing
+        // the field's focus never does, and neither does a folder the picker delivered. Browse is
+        // the owner's own press, on the build that has a folder dialog.
+        let staged = app.proof_dictionary_pick.take();
+        let (response, pending) = dictionary_field(ui, &settings.dictionary_dir, staged);
+        app.hit.add("proofDictionaryDir", 0, response.rect);
+        let can_browse = app.services.file_dialog.is_some();
+        let browse = ui.add_enabled(can_browse, egui::Button::new(tl!("Browse…")));
+        app.hit.add("proofDictionaryBrowse", 0, browse.rect);
+        if !can_browse {
+            browse.clone().on_disabled_hover_text(tl!("This build has no folder dialog: type the folder instead."));
+        } else if browse.clicked() {
+            // One dialog at a time: a second press is answered in the status bar ([`crate::files`]).
+            let _ = app.run("ui.proofDictionaryFolder", json!({}));
+        }
+        let save = ui.add(egui::Button::new(tl!("Save")));
+        app.hit.add("proofDictionarySave", 0, save.rect);
+        if save.clicked() {
+            save_dictionary_folder(app, &settings.dictionary_dir, &pending);
         }
     });
     let read = app.session.proof.read.clone();
@@ -975,36 +998,78 @@ fn proofing(app: &mut MailApp, ui: &mut Ui, t: &Tokens) {
             ui.data_mut(|d| d.insert_temp(egui::Id::unique("opt_proof_word"), String::new()));
         }
     });
-    // Grammar: a LanguageTool server, on this computer unless the owner says otherwise.
+    // Grammar: a LanguageTool server on this computer only.
     ui.add_space(2.0);
     let mut grammar = settings.check_grammar;
     if ui
         .checkbox(&mut grammar, tl!("Check grammar with a LanguageTool server"))
-        .on_hover_text(tl!("The text of the message is sent to that server, and to nothing else. A server on this computer keeps it here; one on another computer does not, and the owner has to allow it below."))
+        .on_hover_text(tl!("The message text is sent only to a LanguageTool server on this computer. Remote grammar servers are not supported."))
         .changed()
     {
         set(app, json!({"checkGrammar": grammar}));
     }
+    // A second way to have LanguageTool on this computer, as a setting of its own: choosing it
+    // rewrites no address and starts nothing. The address below stays exactly as typed.
+    let mut managed = settings.managed_server;
+    let mode = ui
+        .checkbox(&mut managed, tl!("Let MailCraft download and run LanguageTool on this computer"))
+        .on_hover_text(tl!(
+            "MailCraft can fetch the official LanguageTool server and keep it in MailCraft's own folder. It needs Java 17 or newer, which MailCraft does not install. Nothing is checked, downloaded, started, or stopped except by a button below."
+        ));
+    app.hit.add("proofManagedMode", 0, mode.rect);
+    if mode.changed() {
+        set(app, json!({"managedServer": managed}));
+    }
     row(ui, tl!("Server"), |ui| {
-        let mut url = settings.grammar_url.clone();
-        let resp = ui.add(egui::TextEdit::singleline(&mut url).desired_width(260.0).hint_text("http://127.0.0.1:8081"));
-        if resp.lost_focus() && url != settings.grammar_url {
+        // The address the owner typed is kept exactly as it is: choosing the built-in server
+        // only stops the address being the one in use, and turning it off finds it again.
+        let manual = !managed;
+        let (response, changed) =
+            ui.add_enabled_ui(manual, |ui| proofing_field(ui, "proofServer", &settings.grammar_url, "http://127.0.0.1:8081")).inner;
+        app.hit.add("proofServer", 0, response.rect);
+        if let Some(url) = changed {
             set(app, json!({"grammarUrl": url.trim()}));
         }
-        if ui.button(tl!("Test the connection")).clicked() {
+        if !manual {
+            response.on_disabled_hover_text(tl!("Kept as it is: the built-in server is the one in use."));
+        } else if ui.button(tl!("Test the connection")).clicked() {
             crate::proof::test(app);
         }
     });
-    let mut allow = settings.allow_remote;
-    if ui
-        .checkbox(&mut allow, tl!("Allow a grammar server on another computer"))
-        .on_hover_text(tl!("Off: only a server on this computer is spoken to, whatever the address says, and turning this off turns grammar checking off with it if its server is elsewhere."))
-        .changed()
-    {
-        set(app, json!({"allowRemote": allow}));
+    // The connection test's answer, and a refusal's note, belong to one exact configuration: the
+    // mode, the address, the grammar switch, the languages and the quiet rules. A command can
+    // change any of them between frames, so the change is noticed here — after the address a
+    // field may have just committed, and before anything of the old configuration is read for
+    // this frame. Nothing is asked of the host by this.
+    if crate::proof::sync_connection_test(app) {
+        ui.data_mut(|data| data.remove::<(NoteKey, crate::proof_server::Issue)>(managed_note_id()));
     }
-    if let Some(said) = crate::proof::test_result(app) {
-        ui.label(egui::RichText::new(said).color(t.text_dim).small());
+    if managed {
+        // The cached snapshot of the built-in server: reading it is all a frame does, and it
+        // never checks, downloads, starts, or stops anything.
+        match app.services.proof_server.clone() {
+            None => {
+                ui.label(
+                    egui::RichText::new(tl!(
+                        "This build cannot run a built-in LanguageTool server. Turn this switch off to use the address kept in Server: install LanguageTool yourself and name its address there."
+                    ))
+                    .color(t.orange)
+                    .small(),
+                );
+            }
+            Some(server) => managed_panel(ui, t, &mut app.hit, server.as_ref(), &server.status()),
+        }
+    }
+
+    // The connection test asks the address the owner typed, so its answer is not read as news of
+    // the built-in server: it is neither drawn nor kept while that server is chosen.
+    if !managed {
+        // The answer a pending test gives, or the one the last test left: both belong to the
+        // manual address, and both are said in words on this page.
+        let said = crate::proof::test_result(app).or_else(|| app.proof.tested.clone());
+        if let Some(said) = said {
+            ui.label(egui::RichText::new(said).color(t.text_dim).small());
+        }
     }
     if !settings.ignored_rules.is_empty() {
         ui.horizontal(|ui| {
@@ -1013,5 +1078,456 @@ fn proofing(app: &mut MailApp, ui: &mut Ui, t: &Tokens) {
                 let _ = app.run("proof.forgetRules", json!({}));
             }
         });
+    }
+}
+
+#[cfg(test)]
+#[path = "backstage_proof_tests.rs"]
+mod proof_tests;
+
+/// The most bytes a dictionary folder's setting keeps: the limit `proof.set` itself refuses past
+/// (`crates/engine/src/cmd/proof.rs`), checked here too so that a path is never shortened to fit.
+const MOST_FOLDER_BYTES: usize = 1_024;
+
+/// The dictionary folder's field: the text it keeps across frames, and a folder the picker
+/// delivered, which replaces what was typed once. Nothing is written here: Save is what does.
+fn dictionary_field(ui: &mut Ui, saved: &str, staged: Option<String>) -> (egui::Response, String) {
+    let id = egui::Id::unique("proofDictionaryDir");
+    let (last_saved, mut edit) = ui.data(|d| d.get_temp::<(String, String)>(id)).unwrap_or_else(|| (saved.to_string(), saved.to_string()));
+    // A setting changed elsewhere — a script, or the Save that just went through, whose folder
+    // the engine keeps exactly as it was set — is shown as it is now.
+    if last_saved != saved {
+        edit = saved.to_string();
+    }
+    // Only an accepted answer of the picker gets this far: a cancelled or closed dialog leaves
+    // the typing exactly as it was.
+    if let Some(picked) = staged {
+        edit = picked;
+    }
+    let response =
+        ui.add(egui::TextEdit::singleline(&mut edit).id(id).char_limit(2_000).desired_width(260.0).hint_text(tl!("Use installed dictionaries")));
+    ui.data_mut(|d| d.insert_temp(id, (saved.to_string(), edit.clone())));
+    (response, edit)
+}
+
+/// Save: the one thing that writes the dictionary folder. A folder already kept is left exactly
+/// as it is — no command runs — and one that can't be kept whole is said, with both the field's
+/// text and the setting left as they were.
+fn save_dictionary_folder(app: &mut MailApp, saved: &str, pending: &str) {
+    if pending == saved {
+        return;
+    }
+    if let Err(why) = folder_sound(pending) {
+        app.status(why);
+        return;
+    }
+    // No dictionary is read and no status is asked of the host on the frame that saves: the
+    // engine drops what was read of the old folder by itself.
+    let _ = app.run("proof.set", json!({"dictionaryDir": pending}));
+}
+
+/// Why `folder` can't be kept as it is, in words for the owner. Never a shortened folder: one
+/// that can't be kept whole is refused, and the folder in the settings stays.
+fn folder_sound(folder: &str) -> Result<(), String> {
+    if folder.len() > MOST_FOLDER_BYTES {
+        return Err(tl!(
+            "That folder's path is longer than 1024 bytes, which is the most a setting keeps. Nothing was changed: the folder in the settings stays as it was."
+        )
+        .to_string());
+    }
+    if folder.contains('\0') {
+        return Err(tl!(
+            "That folder's path holds a NUL character, which no folder may have. Nothing was changed: the folder in the settings stays as it was."
+        )
+        .to_string());
+    }
+    Ok(())
+}
+
+/// Retain uncommitted input across frames instead of discarding each keystroke from settings.
+fn proofing_field(ui: &mut Ui, name: &'static str, saved: &str, hint: &str) -> (egui::Response, Option<String>) {
+    let id = egui::Id::unique(name);
+    let (last_saved, mut edit) = ui.data(|d| d.get_temp::<(String, String)>(id)).unwrap_or_else(|| (saved.to_string(), saved.to_string()));
+    if last_saved != saved {
+        edit = saved.to_string();
+    }
+    let response = ui.add(egui::TextEdit::singleline(&mut edit).id(id).char_limit(2_000).desired_width(260.0).hint_text(hint));
+    let changed = (response.lost_focus() && edit != saved).then(|| edit.clone());
+    ui.data_mut(|d| d.insert_temp(id, (saved.to_string(), edit)));
+    (response, changed)
+}
+
+/// What File › Options offers for a cached snapshot: one explicit operation per thing the owner
+/// may do, and nothing else.
+///
+/// A phase whose work is still finishing offers nothing: its own operation is drawn disabled
+/// until the host says it is done. `Unchecked` is not `NotInstalled` — nothing was inspected yet,
+/// so the only operation is the read-only check. Java is never fetched or installed here.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct ManagedOptions {
+    check: bool,
+    download: bool,
+    cancel: bool,
+    start: bool,
+    stop: bool,
+    /// The operation that is still finishing, if any: drawn disabled, and nothing else admitted.
+    pending: Option<crate::proof_server::Action>,
+}
+
+fn managed_options(phase: crate::proof_server::Phase, java: crate::proof_server::Java, issue: Option<crate::proof_server::Issue>) -> ManagedOptions {
+    use crate::proof_server::{Action, Issue, Java, Phase};
+    let mut options = ManagedOptions::default();
+    match phase {
+        Phase::Unavailable => {}
+        Phase::Unchecked => options.check = true,
+        Phase::Checking => options.pending = Some(Action::Check),
+        Phase::NotInstalled => {
+            options.download = true;
+            options.check = true;
+        }
+        Phase::Downloading => options.cancel = true,
+        Phase::Extracting => options.cancel = true,
+        Phase::Cancelling => options.pending = Some(Action::Cancel),
+        Phase::Installed | Phase::Stopped => {
+            options.start = java == Java::Available;
+            options.check = true;
+        }
+        Phase::Starting => options.pending = Some(Action::Start),
+        Phase::Running => options.stop = true,
+        Phase::Stopping => options.pending = Some(Action::Stop),
+        Phase::Cancelled => {
+            options.download = true;
+            options.check = true;
+        }
+        Phase::Failed => {
+            options.check = true;
+            // A download that failed before anything was unpacked may be tried again, by an
+            // explicit press. A copy that did not verify, or an archive that could not be read,
+            // is left exactly where it is: there is no repair and no overwrite.
+            options.download = issue == Some(Issue::DownloadFailed);
+        }
+    }
+    options
+}
+
+/// The built-in server as File › Options shows it: the cached phase, the Java that was found, the
+/// version, a download's progress, and one button for each operation the owner may ask for.
+///
+/// Drawing is not an action: [`crate::proof_server::ManagedServer::status`] is a bounded snapshot,
+/// and `request` is called only from the click of an enabled button, in the same frame as the
+/// click. Cancellation and stopping stay pending in the words and controls until the host reports
+/// the cleanup finished.
+fn managed_panel(
+    ui: &mut Ui,
+    t: &Tokens,
+    hit: &mut crate::control::HitMap,
+    server: &dyn crate::proof_server::ManagedServer,
+    status: &crate::proof_server::Status,
+) {
+    use crate::proof_server::{Action, Issue, Phase};
+
+    let phase = status.phase;
+    let java = status.java;
+    let version = status.version.as_str();
+    let endpoint = status.endpoint.as_deref();
+    let downloaded_bytes = status.downloaded_bytes;
+    let total_bytes = status.total_bytes;
+    let issue = status.issue;
+    let options = managed_options(phase, java, issue);
+
+    ui.horizontal_wrapped(|ui| {
+        ui.label(egui::RichText::new(tl!("Built-in server:")).color(t.text_dim).small());
+        ui.label(egui::RichText::new(managed_phase_label(phase)).color(managed_phase_colour(phase, t)).small());
+        // Only a running instance has an address, and only one this computer may use.
+        if phase == Phase::Running
+            && let Some(url) = endpoint.filter(|url| mailcraft_model::proof::address_allowed(url, false))
+        {
+            ui.label(egui::RichText::new(url).color(t.text_dim).small().monospace());
+        }
+    });
+    if !version.is_empty() {
+        let version: String = version.chars().take(64).collect();
+        ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Version {version}"), &[("version", &version)])).color(t.text_dim).small());
+    }
+    // Java is only ever discovered here, so the words add the advice to press Check installation
+    // only when that button is on screen: an unavailable, busy, or running state draws none.
+    managed_java(ui, t, java, options.check);
+    match phase {
+        Phase::Downloading => {
+            ui.label(egui::RichText::new(managed_progress(downloaded_bytes, total_bytes)).color(t.text_dim).small());
+        }
+        // Unpacking has no honest percentage: how much is left is not read, and stale byte
+        // counts from the download are not shown as progress.
+        Phase::Extracting => {
+            ui.label(egui::RichText::new(tl!("Extracting… how much is left is not known.")).color(t.text_dim).small());
+        }
+        Phase::Cancelling => {
+            ui.label(egui::RichText::new(tl!("Cancelling… the work stops once its cleanup has finished.")).color(t.orange).small());
+        }
+        Phase::Stopping => {
+            ui.label(egui::RichText::new(tl!("Stopping… the server stops once the helper has been reaped.")).color(t.orange).small());
+        }
+        // This host cannot do any of it, so no operation is drawn and none is named in the words.
+        Phase::Unavailable => {
+            ui.label(
+                egui::RichText::new(tl!(
+                    "The built-in server is not available in this build or on this computer, so there is nothing here to check, download, or start."
+                ))
+                .color(t.text_dim)
+                .small(),
+            );
+        }
+        // A failure the host reported no kind for: said as exactly that, with the one recovery
+        // this page can offer, and no claim that anything is repaired on its own.
+        Phase::Failed if issue.is_none() => {
+            ui.label(
+                egui::RichText::new(tl!(
+                    "The last operation did not finish, and no further detail was reported. Check installation looks at what is on this computer; nothing is repaired or replaced automatically."
+                ))
+                .color(t.orange)
+                .small(),
+            );
+        }
+        _ => {}
+    }
+    if matches!(phase, Phase::NotInstalled | Phase::Cancelled) || (phase == Phase::Failed && issue == Some(Issue::DownloadFailed)) {
+        ui.label(
+            egui::RichText::new(tl!(
+                "Download fetches the official LanguageTool server archive over HTTPS from its own project and unpacks it into MailCraft's own folder. The licences and notices that come with LanguageTool stay in the installed copy, which is where they remain; the archive itself is not kept after that. Nothing is downloaded until you press Download."
+            ))
+            .color(t.text_dim)
+            .small(),
+        );
+        ui.label(
+            egui::RichText::new(tl!("LanguageTool needs Java 17 or newer, which MailCraft does not download or install.")).color(t.text_dim).small(),
+        );
+    }
+    match issue {
+        // A failed check and a failed download are not the same thing, and neither is repaired,
+        // replaced or removed here: what is said is shared by a bad download and a copy already
+        // on this computer, so neither is described as the other.
+        Some(Issue::IntegrityFailed) => {
+            ui.label(egui::RichText::new(managed_verify_text(Issue::IntegrityFailed)).color(t.orange).small());
+        }
+        Some(Issue::InvalidArchive) => {
+            ui.label(egui::RichText::new(managed_verify_text(Issue::InvalidArchive)).color(t.orange).small());
+        }
+        Some(issue) => {
+            ui.label(egui::RichText::new(managed_issue_text(issue)).color(t.orange).small());
+        }
+        None => {}
+    }
+    // A refused request is kept only while the state that produced it stands: a new phase, or a
+    // change of mode, clears it, so an old refusal is never read as a verdict on the new state.
+    let note_key = NoteKey { phase, issue };
+    if let Some((key, _)) = ui.data(|data| data.get_temp::<(NoteKey, Issue)>(managed_note_id()))
+        && key != note_key
+    {
+        ui.data_mut(|data| data.remove::<(NoteKey, Issue)>(managed_note_id()));
+    }
+    ui.horizontal_wrapped(|ui| {
+        let mut asked = None;
+        if options.check || options.pending == Some(Action::Check) {
+            let label = if options.pending == Some(Action::Check) { tl!("Checking…") } else { tl!("Check installation") };
+            if managed_button(ui, hit, "proofManagedCheck", label, options.check) {
+                asked = Some(Action::Check);
+            }
+        }
+        if options.download && managed_button(ui, hit, "proofManagedDownload", tl!("Download"), true) {
+            asked = Some(Action::Download);
+        }
+        if options.cancel || options.pending == Some(Action::Cancel) {
+            let label = if options.pending == Some(Action::Cancel) { tl!("Cancelling…") } else { tl!("Cancel download") };
+            if managed_button(ui, hit, "proofManagedCancel", label, options.cancel) {
+                asked = Some(Action::Cancel);
+            }
+        }
+        if options.start || options.pending == Some(Action::Start) {
+            let label = if options.pending == Some(Action::Start) { tl!("Starting…") } else { tl!("Start server") };
+            if managed_button(ui, hit, "proofManagedStart", label, options.start) {
+                asked = Some(Action::Start);
+            }
+        }
+        if options.stop || options.pending == Some(Action::Stop) {
+            let label = if options.pending == Some(Action::Stop) { tl!("Stopping…") } else { tl!("Stop server") };
+            if managed_button(ui, hit, "proofManagedStop", label, options.stop) {
+                asked = Some(Action::Stop);
+            }
+        }
+        // The one place an owner's operation is asked of the host: a button that was drawn
+        // enabled and clicked this frame. A refusal is said in words; nothing is retried.
+        if let Some(action) = asked {
+            match server.request(action) {
+                Ok(()) => {
+                    ui.data_mut(|data| data.remove::<(NoteKey, Issue)>(managed_note_id()));
+                }
+                Err(issue) => {
+                    ui.data_mut(|data| data.insert_temp(managed_note_id(), (note_key, issue)));
+                }
+            }
+        }
+    });
+    if let Some(issue) =
+        ui.data(|data| data.get_temp::<(NoteKey, Issue)>(managed_note_id())).and_then(|(key, issue)| (key == note_key).then_some(issue))
+    {
+        ui.label(egui::RichText::new(managed_issue_text(issue)).color(t.orange).small());
+    }
+}
+
+/// What a stored refusal is about: the phase and the reported failure it was refused in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct NoteKey {
+    phase: crate::proof_server::Phase,
+    issue: Option<crate::proof_server::Issue>,
+}
+
+/// Where the last refusal's kind is kept between frames (a note under the buttons, never a
+/// setting and never part of the mailbox).
+fn managed_note_id() -> egui::Id {
+    egui::Id::unique("opt_proof_managed_note")
+}
+
+fn managed_button(ui: &mut Ui, hit: &mut crate::control::HitMap, key: &'static str, label: &str, enabled: bool) -> bool {
+    let response = ui.add_enabled(enabled, egui::Button::new(label));
+    hit.add(key, 0, response.rect);
+    enabled && response.clicked()
+}
+
+/// The Java the host last found, in honest words.
+///
+/// `Unknown` is what a build that has not looked for Java reports **and** what one that found a
+/// launcher it could not probe reports: it says neither that Java is absent nor that it was never
+/// searched for. The advice to press Check installation is given only when `check` is true, so the
+/// words never point at a button the current phase does not draw.
+fn managed_java(ui: &mut Ui, t: &Tokens, java: crate::proof_server::Java, check: bool) {
+    use crate::proof_server::Java;
+    let (said, colour) = match java {
+        Java::Available => (tl!("Java 17 or newer: found."), t.text_dim),
+        Java::Missing => (
+            if check {
+                tl!("Java 17 or newer is not installed. MailCraft never installs Java: install it yourself, then press Check installation.")
+            } else {
+                tl!("Java 17 or newer is not installed. MailCraft never installs Java: install it yourself.")
+            },
+            t.orange,
+        ),
+        Java::TooOld => (
+            if check {
+                tl!(
+                    "The Java on this computer is older than 17. LanguageTool needs Java 17 or newer, installed separately; MailCraft will not install it. Install it yourself, then press Check installation."
+                )
+            } else {
+                tl!(
+                    "The Java on this computer is older than 17. LanguageTool needs Java 17 or newer, installed separately; MailCraft will not install it."
+                )
+            },
+            t.orange,
+        ),
+        Java::Unknown => (
+            if check {
+                tl!(
+                    "Whether Java 17 or newer is installed is not known: MailCraft has not looked yet, or found a Java it could not probe. Check installation looks again. MailCraft does not install Java."
+                )
+            } else {
+                tl!(
+                    "Whether Java 17 or newer is installed is not known: MailCraft has not looked yet, or found a Java it could not probe. MailCraft does not install Java."
+                )
+            },
+            t.text_dim,
+        ),
+    };
+    ui.label(egui::RichText::new(said).color(colour).small());
+}
+
+/// A check that did not verify, or an archive that could not be read, in words that are true
+/// whether what failed was the download or the copy already on this computer.
+///
+/// The checksum is the one this build pins for the official archive: this build computes it from
+/// the official HTTPS archive when the pin is prepared and takes nothing from the archive's
+/// author. Nothing here repairs, replaces or overwrites anything; temporary files are cleaned up
+/// when possible, and nothing is promised about the ones cleanup could not remove.
+fn managed_verify_text(issue: crate::proof_server::Issue) -> &'static str {
+    use crate::proof_server::Issue;
+    match issue {
+        Issue::IntegrityFailed => tl!(
+            "MailCraft could not verify the LanguageTool files. The checksum pinned in this MailCraft build and the installed-file manifest were computed from the official HTTPS archive when the pin was prepared; they are not signed or supplied by upstream. An existing installation is never overwritten, and temporary files are cleaned up when possible. Check installation looks at what is on this computer."
+        ),
+        _ => tl!(
+            "The downloaded archive could not be read, so nothing was installed. An existing installation is never overwritten, and temporary files are cleaned up when possible. Check installation looks at what is on this computer."
+        ),
+    }
+}
+
+fn managed_phase_label(phase: crate::proof_server::Phase) -> &'static str {
+    use crate::proof_server::Phase;
+    match phase {
+        Phase::Unavailable => tl!("not available on this computer"),
+        Phase::Unchecked => tl!("not checked yet"),
+        Phase::Checking => tl!("checking the installation…"),
+        Phase::NotInstalled => tl!("not installed"),
+        Phase::Downloading => tl!("downloading…"),
+        Phase::Extracting => tl!("extracting…"),
+        Phase::Cancelling => tl!("cancelling…"),
+        Phase::Installed => tl!("installed, not running"),
+        Phase::Starting => tl!("starting…"),
+        Phase::Running => tl!("running"),
+        Phase::Stopping => tl!("stopping…"),
+        Phase::Stopped => tl!("stopped"),
+        Phase::Cancelled => tl!("cancelled"),
+        Phase::Failed => tl!("failed"),
+    }
+}
+
+fn managed_phase_colour(phase: crate::proof_server::Phase, t: &Tokens) -> egui::Color32 {
+    use crate::proof_server::Phase;
+    match phase {
+        Phase::Running => t.green,
+        Phase::Failed | Phase::Unavailable => t.red,
+        _ => t.text_dim,
+    }
+}
+
+/// A cached failure in words, without any server output, command line, or draft.
+fn managed_issue_text(issue: crate::proof_server::Issue) -> &'static str {
+    use crate::proof_server::Issue;
+    match issue {
+        Issue::Unavailable => tl!("This computer cannot perform that operation."),
+        Issue::Busy => tl!("The built-in server is busy with another request; nothing else was started."),
+        Issue::JavaMissing => tl!("Java 17 or newer is needed to start it."),
+        Issue::JavaTooOld => tl!("The Java on this computer is older than 17."),
+        Issue::DownloadFailed => tl!("The download did not finish."),
+        Issue::IntegrityFailed => tl!("What was downloaded did not match the checksum this build pins for the official archive."),
+        Issue::InvalidArchive => tl!("The downloaded archive could not be read."),
+        Issue::InstallFailed => tl!("It could not be unpacked into MailCraft's folder."),
+        Issue::NotInstalled => tl!("There is no installed copy to start."),
+        Issue::StartFailed => tl!("It did not start."),
+        Issue::StartTimedOut => tl!("It did not answer in time."),
+        Issue::Cancelled => tl!("The last operation was cancelled."),
+    }
+}
+
+/// A download's progress, from the snapshot's two byte counts only: a percentage when the total
+/// is known, and the bytes so far otherwise. Never a clock, never a guess.
+fn managed_progress(downloaded: u64, total: u64) -> String {
+    let so_far = managed_size(downloaded);
+    if total == 0 {
+        return crate::i18n::fmt(tl!("Downloading… {so_far} so far"), &[("so_far", &so_far)]);
+    }
+    let percent = downloaded.saturating_mul(100) / total;
+    let percent = percent.min(100).to_string();
+    let total = managed_size(total);
+    crate::i18n::fmt(tl!("Downloading… {percent}% ({so_far} of {total})"), &[("percent", &percent), ("so_far", &so_far), ("total", &total)])
+}
+
+/// A byte count as the owner reads it: whole MB, whole KB, or bytes.
+fn managed_size(bytes: u64) -> String {
+    const MIB: u64 = 1024 * 1024;
+    const KIB: u64 = 1024;
+    if bytes >= MIB {
+        crate::i18n::fmt(tl!("{n} MB"), &[("n", &format!("{:.1}", bytes as f64 / MIB as f64))])
+    } else if bytes >= KIB {
+        crate::i18n::fmt(tl!("{n} KB"), &[("n", &format!("{:.1}", bytes as f64 / KIB as f64))])
+    } else {
+        crate::i18n::fmt(tl!("{n} bytes"), &[("n", &bytes.to_string())])
     }
 }

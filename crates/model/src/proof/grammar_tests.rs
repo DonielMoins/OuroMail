@@ -7,6 +7,7 @@
 
 use std::time::{Duration, Instant};
 
+use super::grammar::{utf16_index, utf16_to_byte};
 use super::*;
 
 /// An answer holding `matches`, as JSON.
@@ -180,4 +181,94 @@ fn a_span_is_always_bytes_of_the_text_that_was_sent() {
         assert!(d.span.fits(text), "{:?}", d.span);
         assert!(text.get(d.span.start..d.span.end).is_some());
     }
+}
+
+#[test]
+fn utf16_offsets_are_converted() {
+    let text = "Les documents sont important.";
+    let index = utf16_index(text);
+    for (units, byte) in &index {
+        assert_eq!(utf16_to_byte(text, &index, *units as i64), Some(*byte));
+    }
+    // `é` is one UTF-16 unit and two bytes: a server counting units lands after it by two bytes.
+    let text = "café noir";
+    let index = utf16_index(text);
+    assert_eq!(utf16_to_byte(text, &index, 4), Some(5));
+    assert_eq!(text.get(5..), Some(" noir"));
+    // A character outside the basic plane is two units and four bytes.
+    let text = "a🦀b";
+    let index = utf16_index(text);
+    assert_eq!(utf16_to_byte(text, &index, 1), Some(1));
+    assert_eq!(utf16_to_byte(text, &index, 2), None, "the middle of the crab is no character's start");
+    assert_eq!(utf16_to_byte(text, &index, 3), Some(5));
+    assert_eq!(utf16_to_byte(text, &index, 99), None);
+    assert_eq!(utf16_to_byte(text, &index, -1), None);
+}
+
+#[test]
+fn a_form_carries_the_text_whole() {
+    let req = CheckRequest { text: "Bonjour & à bientôt = 100%", language: Language::FrCa };
+    let form = req.form();
+    assert!(form.starts_with("text=Bonjour+%26+%C3%A0+bient%C3%B4t+%3D+100%25&language=fr-CA"));
+    assert!(!form.contains(' '));
+}
+
+#[test]
+fn an_answer_is_read_with_its_offsets_in_bytes() {
+    let text = "Les document sont important.";
+    let body = br#"{"matches":[{"message":"Accord","replacements":[{"value":"documents"}],"offset":4,"length":8,"rule":{"id":"FR_ACCORD","issueType":"grammar"}}]}"#;
+    let got = parse_answer(body, text, Language::FrCa, &[]).expect("an answer");
+    assert_eq!(got.len(), 1);
+    let d = got.first().expect("one");
+    assert_eq!(text.get(d.span.start..d.span.end), Some("document"));
+    assert_eq!(d.suggestions.first().map(String::as_str), Some("documents"));
+    assert_eq!(d.kind, Kind::Grammar);
+    assert_eq!(d.rule.as_deref(), Some("FR_ACCORD"));
+}
+
+#[test]
+fn a_match_that_does_not_fit_is_dropped() {
+    let text = "Bonjour";
+    for body in [
+        r#"{"matches":[{"message":"x","offset":2,"length":99}]}"#,
+        r#"{"matches":[{"message":"x","offset":-4,"length":1}]}"#,
+        r#"{"matches":[{"message":"x","offset":0,"length":0}]}"#,
+        r#"{"matches":[{"message":"x","offset":900,"length":1}]}"#,
+    ] {
+        let got = parse_answer(body.as_bytes(), text, Language::EnCa, &[]).expect("an answer");
+        assert!(got.is_empty(), "{body}");
+    }
+}
+
+#[test]
+fn a_quiet_rule_is_left_out() {
+    let text = "Bonjour";
+    let body = br#"{"matches":[{"message":"x","offset":0,"length":7,"rule":{"id":"QUIET"}}]}"#;
+    assert!(parse_answer(body, text, Language::FrCa, &["QUIET".to_string()]).expect("an answer").is_empty());
+}
+
+#[test]
+fn a_rule_id_longer_than_one_is_kept_out_without_losing_the_place() {
+    // A rule id goes into the settings when the owner silences it, so a hostile answer must not
+    // make a megabyte one: the place is still shown, it just has no rule to name.
+    let text = "Bonjour";
+    let long = "R".repeat(65);
+    let body = format!(r#"{{"matches":[{{"message":"x","offset":0,"length":7,"rule":{{"id":"{long}"}}}}]}}"#);
+    let got = parse_answer(body.as_bytes(), text, Language::FrCa, &[]).expect("an answer");
+    assert_eq!(got.len(), 1);
+    assert_eq!(got.first().and_then(|d| d.rule.as_deref()), None);
+    // A name LanguageTool could give is kept whole.
+    let short = "R".repeat(64);
+    let body = format!(r#"{{"matches":[{{"message":"x","offset":0,"length":7,"rule":{{"id":"{short}"}}}}]}}"#);
+    let got = parse_answer(body.as_bytes(), text, Language::FrCa, &[]).expect("an answer");
+    assert_eq!(got.first().and_then(|d| d.rule.as_deref()), Some(short.as_str()));
+}
+
+#[test]
+fn a_replacement_too_long_to_put_in_the_message_is_not_offered() {
+    let text = "Bonjour";
+    let long = "x".repeat(301);
+    let body = format!(r#"{{"matches":[{{"message":"x","offset":0,"length":7,"replacements":[{{"value":"{long}"}},{{"value":"Salut"}}]}}]}}"#);
+    let got = parse_answer(body.as_bytes(), text, Language::FrCa, &[]).expect("an answer");
+    assert_eq!(got.first().map(|d| d.suggestions.clone()), Some(vec!["Salut".to_string()]));
 }

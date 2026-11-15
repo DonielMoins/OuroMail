@@ -49,6 +49,33 @@ fn settings_written_come_back_whole() {
 }
 
 #[test]
+fn proofing_preferences_and_personal_words_survive_the_real_settings_file() {
+    use mailcraft_model::proof::Language;
+    let scratch = Scratch::new("proofing-written");
+    let path = scratch.0.join("ui.json");
+    let mut ui = UiState::default();
+    ui.options.proof.check_spelling = true;
+    ui.options.proof.check_grammar = true;
+    ui.options.proof.as_you_type = false;
+    ui.options.proof.languages = vec![Language::EnCa, Language::FrCa];
+    ui.options.proof.grammar_url = "http://127.0.0.1:18081".into();
+    ui.options.proof.dictionary_dir = scratch.0.to_string_lossy().into_owned();
+    ui.options.proof.ignored_rules = vec!["TEST_RULE".into()];
+    assert!(ui.options.proof.add_word("Hochelaga"));
+    assert!(ui.options.proof.add_word("Montréal"));
+    write_prefs(&path, &ui).unwrap();
+    let (back, unread) = read_prefs(&path);
+    assert_eq!(unread, None);
+    assert_eq!(back.unwrap().options.proof, ui.options.proof);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o077, 0);
+    }
+    assert_eq!(names(&scratch.0), ["ui.json"]);
+}
+
+#[test]
 fn a_good_file_is_read_and_a_missing_one_is_nothing_to_say() {
     let s = Scratch::new("good");
     let path = s.file("ui.json", r#"{"theme": "dark", "view": {"sort": "from"}}"#);

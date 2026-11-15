@@ -17,6 +17,7 @@
 //! A request the MCP bridge marked as an agent's (`agent`) goes through [`crate::agent_gate`].
 //! - `ui.parity`: feature catalog parity
 
+use std::borrow::Cow;
 use std::sync::mpsc::Sender;
 
 use serde_json::{Value, json};
@@ -68,8 +69,10 @@ pub enum Outcome {
 /// tests click by asking `ui.inspect` for an item's rectangle instead of guessing coordinates.
 #[derive(Default)]
 pub struct HitMap {
-    /// What, its id, where, and the window of its own it is in (0: the main window).
-    items: Vec<(&'static str, u64, egui::Rect, u64)>,
+    /// What, its id, where, and the window of its own it is in (0: the main window). A control
+    /// may also be named by a key of its own (a draft's footer selector, say), which carries ids
+    /// and codes as text rather than as the numeric id beside them.
+    items: Vec<(Cow<'static, str>, u64, egui::Rect, u64)>,
     /// The window of its own being laid out (#286): what is recorded meanwhile is in it.
     scope: u64,
 }
@@ -82,6 +85,17 @@ impl HitMap {
     /// Record that the `kind` (`message`, `messageRead` for a row's read/unread switch, `folder`,
     /// `event`, `contact`, `task`) with `id` is at `rect`.
     pub fn add(&mut self, kind: &'static str, id: u64, rect: egui::Rect) {
+        self.push(Cow::Borrowed(kind), id, rect);
+    }
+
+    /// Record a control named by a `key` that is not one fixed word: a document's own id and a
+    /// language's code, as in `proofComposeLanguage:7:fr-CA`. Its numeric id is 0; agents and
+    /// tests find it by its key alone.
+    pub fn add_key(&mut self, key: impl Into<Cow<'static, str>>, rect: egui::Rect) {
+        self.push(key.into(), 0, rect);
+    }
+
+    fn push(&mut self, kind: Cow<'static, str>, id: u64, rect: egui::Rect) {
         // A list far longer than a screen can show isn't worth recording.
         if self.items.len() < 4000 {
             self.items.push((kind, id, rect, self.scope));
@@ -96,13 +110,13 @@ impl HitMap {
 
     /// Where `kind` with `id` is: in the main window when it is there, else in a window of its own.
     pub fn rect(&self, kind: &str, id: u64) -> Option<egui::Rect> {
-        let found = |main: bool| self.items.iter().find(|(k, i, _, w)| *k == kind && *i == id && (*w == 0) == main);
+        let found = |main: bool| self.items.iter().find(|(k, i, _, w)| k.as_ref() == kind && *i == id && (*w == 0) == main);
         found(true).or_else(|| found(false)).map(|(_, _, r, _)| *r)
     }
 
     /// Where `kind` with `id` is in the window of its own numbered `window` (0: the main window).
     pub fn rect_in(&self, window: u64, kind: &str, id: u64) -> Option<egui::Rect> {
-        self.items.iter().find(|(k, i, _, w)| *k == kind && *i == id && *w == window).map(|(_, _, r, _)| *r)
+        self.items.iter().find(|(k, i, _, w)| k.as_ref() == kind && *i == id && *w == window).map(|(_, _, r, _)| *r)
     }
 
     fn to_json(&self) -> Value {
@@ -110,7 +124,7 @@ impl HitMap {
             self.items
                 .iter()
                 .map(|(kind, id, r, window)| {
-                    let mut at = json!({"kind": kind, "id": id, "rect": [r.left(), r.top(), r.width(), r.height()]});
+                    let mut at = json!({"kind": kind.as_ref(), "id": id, "rect": [r.left(), r.top(), r.width(), r.height()]});
                     if *window != 0 {
                         at["window"] = json!(window);
                     }
@@ -150,6 +164,8 @@ pub fn inspect(app: &mut MailApp, ctx: &egui::Context) -> Value {
             "changed": c.dirty,
         })).collect::<Vec<_>>(),
         "dialog": app.dialog.as_ref().map(|d| d.name()),
+        // What proofing already knows of the body being drawn: cached state only, never a check.
+        "proofing": crate::proof::inspect(app),
         // Send/Receive Progress, a panel in the window rather than a dialog.
         "panel": app.sync_panel.as_ref().map(|_| "syncProgress"),
         "agentQuestion": app.asking.front().map(|a| json!({"command": a.id, "needs": a.class.as_str(), "what": a.what})),

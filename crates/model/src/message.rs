@@ -283,6 +283,10 @@ pub struct Message {
     pub answered: bool,
     pub forwarded: bool,
     pub draft: bool,
+    /// The owner's proofreading languages for this draft, kept locally with it. Older drafts
+    /// inherit the defaults when opened. This is not a mail header or a server draft property.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_languages: Option<Vec<crate::proof::Language>>,
     pub pinned: bool,
     /// The kinds of sender warning ([`crate::sender_warnings::Warning::kind`]) the owner dismissed
     /// the banner for (#508). The banner is hidden while every kind it would show is among these;

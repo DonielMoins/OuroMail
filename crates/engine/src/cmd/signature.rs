@@ -77,12 +77,14 @@ fn named<'a>(s: &'a mut Session, v: &Value) -> Result<&'a mut Signature, CmdErro
     s.mailbox.signatures.iter_mut().find(|x| x.name.eq_ignore_ascii_case(&name)).ok_or_else(|| failed!("no signature named \"{name}\"", name))
 }
 
-/// The open signature's text is what `set` gave the signature of that name.
+/// The open signature's text is what `set` gave the signature of that name. The editor stays the
+/// one it was — saved in place, not opened again — so it keeps its identity.
 fn reopen(s: &mut Session, name: &str) {
     if let Some(e) = s.signature_edit.as_mut().filter(|e| e.signature.name.eq_ignore_ascii_case(name))
         && let Some(sig) = s.mailbox.signature(name)
     {
-        *e = SignatureEdit { signature: sig.clone(), body: RichBody::new(sig.body().clone()), dirty: false };
+        let id = e.id;
+        *e = SignatureEdit { id, signature: sig.clone(), body: RichBody::new(sig.body().clone()), dirty: false };
     }
 }
 
@@ -127,7 +129,10 @@ fn open(s: &mut Session, v: &Value) -> CmdResult {
     if s.signature_edit.as_ref().is_some_and(|e| e.signature.name == sig.name) {
         return done();
     }
-    s.signature_edit = Some(SignatureEdit { body: RichBody::new(sig.body().clone()), signature: sig, dirty: false });
+    // A new editor instance, with an identity of its own: opening the same signature again is not
+    // the editor that was closed, even when its words are the same.
+    let id = s.next_signature_id().ok_or_else(|| fail("this session has no signature editor left to open"))?;
+    s.signature_edit = Some(SignatureEdit { id, body: RichBody::new(sig.body().clone()), signature: sig, dirty: false });
     done()
 }
 

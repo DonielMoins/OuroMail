@@ -49,6 +49,8 @@ mod kinds;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod languagetool;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod languagetool_install;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod oauth;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pictures;
@@ -280,6 +282,10 @@ mod native {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod languagetool_tests;
+
+#[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
+mod languagetool_install_tests;
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod password_tests;

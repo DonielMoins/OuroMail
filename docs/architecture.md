@@ -84,6 +84,36 @@ egui, eframe, winit or rfd.
    exit; the browser writes to its storage; File › Save As and the exports write other files (a
    download in the browser).
 
+## Proofreading while composing
+
+Local spelling and optional local grammar are commands and host services, not a socket in the
+engine: the engine never opens a connection itself. `model::proof` reads a bounded subset of
+Hunspell dictionaries and accepts a word if any enabled dictionary knows it. `engine::cmd::proof`
+checks text, editor identity and ranges; a correction is one step of the rich body's own undo and a
+stale editor or text snapshot is refused. A draft's language choice is local metadata and never
+becomes an Internet mail header.
+
+The window's `ProofService` seam owns background requests for spelling, suggestions and grammar.
+Cached places belong to one composer or signature instance, revision and configuration; results
+for an obsolete one are dropped. Provider language, source and byte ranges survive the conversion
+into the review walk. The desktop host gives spelling and grammar a bounded worker each, with
+one-deep request slots, so no dictionary scan or grammar exchange runs on a frame. Explicit
+headless `proof.check` and `proof.status` may read dictionaries synchronously.
+
+The desktop host runs grammar over `mailcraft-net`'s bounded loopback-only HTTP transport using the
+request and response types from `languagetool-rust` (LTRS), not that crate's HTTP client or an LSP
+server; the Java LanguageTool engine remains a separate program. Managed Check, Download, Start,
+Stop and Cancel are explicit owner operations. Their host/helper protocol is bounded; an owned bind
+plus synthetic warm checks is required before an endpoint is published, and Stop revokes it before
+waiting for cleanup. A private lifetime pipe binds the helper's Java child to the application. The
+manual server address is kept separately from the managed preference.
+
+`ui.inspect`'s `proofing` field is a passive snapshot bound to the editor and revision it observed,
+with counts and completion/partial state, never draft text or endpoints. A completed check can be a
+failure or leave uncertain text unchecked. See [proofing.md](proofing.md) for setup and compatibility
+limits, and [control-protocol.md](control-protocol.md#proofreading-observation) for the snapshot's
+scope.
+
 ## Decisions worth knowing
 
 - **Event times are wall-clock times, and the mailbox says whose clock.** `Event::start` and

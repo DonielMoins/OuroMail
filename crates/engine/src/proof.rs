@@ -12,9 +12,10 @@
 //! never by the engine).
 //!
 //! A message's text is data. It is checked, corrected and forgotten; it is never logged, never put
-//! in an error's words, and never leaves this computer unless the owner turned on a grammar server
-//! that is not this machine ([`mailcraft_model::proof::ProofSettings::grammar_allowed`]).
+//! in an error's words. The grammar transport accepts only a server on this computer
+//! ([`mailcraft_model::proof::ProofSettings::grammar_allowed`]).
 
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use mailcraft_model::proof::{Diagnostic, Kind, Language, ProofSettings, Source, Span, Speller};
@@ -22,10 +23,28 @@ use mailcraft_model::proof::{Diagnostic, Kind, Language, ProofSettings, Source, 
 /// Most bytes one dictionary file may be: a `.dic` of the largest languages is a few megabytes.
 const MAX_DICT_BYTES: u64 = 16 * 1024 * 1024;
 
+/// Which editor a review belongs to: a message being written or a signature being edited, each by
+/// the identity it was given. Never by its words — an editor of the same text is still another
+/// editor, and a review of the one closed is not a review of its successor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Editor {
+    /// The message being written, by its id ([`crate::Session::compose_id`]).
+    Compose(u64),
+    /// The signature being edited, by its id ([`crate::Session::signature_id`]).
+    Signature(u64),
+}
+
 /// The owner's proofing state for the session: the dictionaries, and the walk.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct Proofing {
     speller: Speller,
+    /// Updating personal words must not reread and expand every installed dictionary.
+    personal: Vec<String>,
+    /// A review belongs to this editor instance, even when another editor has identical words.
+    document: Option<Editor>,
+    /// A review's places also belong to the exact effective configuration that found them.
+    /// Changing languages without changing the text must not leave an old correction usable.
+    review_settings: Option<ProofSettings>,
     /// What the speller was read for (the languages and the folder): read again when that changes.
     key: Option<Key>,
     /// Why there is no dictionary, in words for File › Options, when there is none.
@@ -41,11 +60,10 @@ pub struct Proofing {
 struct Key {
     languages: Vec<Language>,
     dir: String,
-    personal: usize,
 }
 
 /// Review › Spelling & Grammar: the places to look at, and which one is on screen.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Walk {
     /// The text the places are in, as it was when they were found: a place is applied only while
     /// the text is still this one.
@@ -56,6 +74,18 @@ pub struct Walk {
     pub at: usize,
     /// The places the owner said to leave alone this time, by their place in the text.
     pub ignored: Vec<Span>,
+}
+
+impl std::fmt::Debug for Proofing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Proofing").field("loaded", &self.key.is_some()).field("walk", &self.walk).finish()
+    }
+}
+
+impl std::fmt::Debug for Walk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Walk").field("places", &self.items.len()).field("at", &self.at).finish_non_exhaustive()
+    }
 }
 
 impl Walk {
@@ -71,19 +101,60 @@ impl Walk {
 }
 
 impl Proofing {
+    /// Forget a walk when its effective languages, words or other proofing settings change.
+    /// This compares cached state only; it never reads dictionaries or asks a provider.
+    pub fn bind_settings(&mut self, settings: &ProofSettings) {
+        if self.review_settings.as_ref() != Some(settings) {
+            self.walk = None;
+            self.review_settings = Some(settings.clone());
+        }
+    }
+
+    /// Another editor instance invalidates a review; dictionary caches are independent of drafts.
+    pub fn bind_document(&mut self, editor: Option<Editor>) {
+        if self.document != editor {
+            self.walk = None;
+            self.document = editor;
+        }
+    }
+
     /// The words of every dictionary the settings turn on, read from this computer if they are not
     /// read yet (or were read for another set of languages).
     pub fn words(&mut self, settings: &ProofSettings) -> &Speller {
-        let key = Key { languages: settings.active(), dir: settings.dictionary_dir.clone(), personal: settings.personal.len() };
+        let key = Key { languages: settings.active(), dir: settings.dictionary_dir.clone() };
         if self.key.as_ref() != Some(&key) {
             let (speller, note) = read_dictionaries(settings);
             self.read = speller.languages().iter().map(|l| l.name().to_string()).collect();
             self.speller = speller;
+            self.personal.clear();
             self.note = note;
             self.key = Some(key);
         }
-        self.speller.set_personal(&settings.personal_words());
+        if !self.personal.iter().eq(settings.personal.iter().take(mailcraft_model::proof::MAX_PERSONAL)) {
+            self.speller.set_personal(&settings.personal_words());
+            self.personal = settings.personal.iter().take(mailcraft_model::proof::MAX_PERSONAL).cloned().collect();
+        }
         &self.speller
+    }
+
+    /// Already prepared words only: mutation responses and UI frames must never start file I/O.
+    pub fn cached_words(&self, settings: &ProofSettings) -> Option<&Speller> {
+        let key = Key { languages: settings.active(), dir: settings.dictionary_dir.clone() };
+        (self.key.as_ref() == Some(&key)).then_some(&self.speller)
+    }
+
+    /// Forgets what was read, and what was said about it, when the settings now name another set
+    /// of languages or another folder. Nothing is read here: a settings save never waits on files,
+    /// and the next check reads the dictionaries the new settings turn on.
+    pub fn forget_stale_cache(&mut self, settings: &ProofSettings) {
+        let key = Key { languages: settings.active(), dir: settings.dictionary_dir.clone() };
+        if self.key.is_some() && self.key.as_ref() != Some(&key) {
+            self.key = None;
+            self.speller = Speller::new();
+            self.personal.clear();
+            self.read.clear();
+            self.note = None;
+        }
     }
 
     /// Whether a dictionary was read.
@@ -170,10 +241,11 @@ pub fn read_dictionaries(settings: &ProofSettings) -> (Speller, Option<String>) 
     for lang in settings.active() {
         let mut got = false;
         for try_lang in [lang, lang.kin()] {
-            if let Some((aff, dic, path)) = find(try_lang, &dirs)
-                && let Ok(dict) = mailcraft_model::proof::Dictionary::from_hunspell(lang, &aff, &dic)
-            {
-                used.push(format!("{} ({})", lang.name(), path.display()));
+            if let Some(dict) = find(try_lang, &dirs) {
+                used.push(try_lang.name().to_string());
+                if try_lang != lang {
+                    missing.push(lang.name());
+                }
                 speller.put(dict);
                 got = true;
                 break;
@@ -195,7 +267,10 @@ pub fn read_dictionaries(settings: &ProofSettings) -> (Speller, Option<String>) 
 
 /// The folders dictionaries are looked in, in order: the owner's own if they named one.
 pub fn dictionary_dirs(settings: &ProofSettings) -> Vec<PathBuf> {
-    let named = settings.dictionary_dir.trim();
+    // A named folder is a filesystem path and is used exactly as it was kept: its spaces, leading,
+    // trailing or all of them, are part of its name. Only an exact empty string means no folder
+    // was named, and then the usual places are used.
+    let named = settings.dictionary_dir.as_str();
     if !named.is_empty() {
         return vec![PathBuf::from(named)];
     }
@@ -218,15 +293,19 @@ pub fn dictionary_dirs(settings: &ProofSettings) -> Vec<PathBuf> {
     out
 }
 
-/// The `.aff` and `.dic` of `lang` in one of `dirs`, with where they were found.
-fn find(lang: Language, dirs: &[PathBuf]) -> Option<(String, String, PathBuf)> {
+/// The first readable dictionary, not merely the first file with a dictionary's name.
+fn find(lang: Language, dirs: &[PathBuf]) -> Option<mailcraft_model::proof::Dictionary> {
     let codes = names_for(lang);
     for dir in dirs {
         for code in &codes {
             let dic = dir.join(format!("{code}.dic"));
             let Some(text) = read_capped(&dic) else { continue };
             let aff = read_capped(&dir.join(format!("{code}.aff"))).unwrap_or_default();
-            return Some((aff, text, dic));
+            if let Ok(dictionary) = mailcraft_model::proof::Dictionary::from_hunspell(lang, &aff, &text)
+                && !dictionary.is_empty()
+            {
+                return Some(dictionary);
+            }
         }
     }
     None
@@ -256,7 +335,13 @@ fn read_capped(path: &Path) -> Option<String> {
     if !meta.is_file() || meta.len() > MAX_DICT_BYTES {
         return None;
     }
-    let bytes = std::fs::read(path).ok()?;
+    // The file may grow after metadata was read. Bound the read itself, not only that hint.
+    let file = std::fs::File::open(path).ok()?;
+    let mut bytes = Vec::new();
+    file.take(MAX_DICT_BYTES.saturating_add(1)).read_to_end(&mut bytes).ok()?;
+    if u64::try_from(bytes.len()).ok()? > MAX_DICT_BYTES {
+        return None;
+    }
     String::from_utf8(bytes).ok()
 }
 

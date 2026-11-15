@@ -4,7 +4,7 @@
 //! turned on at once, and grammar read from a LanguageTool server on this computer.
 //!
 //! Nothing here does I/O and nothing here knows about a window. The text comes in as a string
-//! whose positions are **byte** offsets (they are what [`crate::rich`] uses), the diagnostics go
+//! whose provider positions are **byte** offsets (the editor converts them to character positions), the diagnostics go
 //! out as [`Diagnostic`]s over the same positions, and what to check is [`ProofSettings`].
 //!
 //! - A word is accepted if **any** enabled language accepts it ([`Speller::accept`]); a sentence
@@ -19,6 +19,7 @@
 //! rather than clamped into something that would replace the wrong text.
 
 use serde::{Deserialize, Serialize};
+use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
 
 use crate::ModelError;
 
@@ -55,6 +56,10 @@ pub const MAX_PERSONAL_WORD: usize = 64;
 
 /// Longest grammar server answer read, in bytes.
 pub const MAX_ANSWER: usize = 1024 * 1024;
+
+/// Most characters of a suggestion, or of a message, that are kept: an answer from a grammar
+/// server is from outside, and one of megabytes is not one to hold whole.
+pub const MAX_TEXT: usize = 512;
 
 /// The languages proofing knows. A dictionary says which one it is; the owner picks which are on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -266,10 +271,11 @@ impl Diagnostic {
     }
 }
 
-/// One line of text, without control characters (except a tab, which becomes a space).
+/// One line of text, without control characters (except a tab, which becomes a space), and no
+/// more than [`MAX_TEXT`] characters of it: an answer from a grammar server is from outside.
 fn clean_text(s: &str) -> String {
-    let mut out = String::with_capacity(s.len().min(1_024));
-    for c in s.chars() {
+    let mut out = String::with_capacity(s.len().min(MAX_TEXT * 4));
+    for c in s.chars().take(MAX_TEXT) {
         match c {
             '\t' => out.push(' '),
             c if c.is_control() || c == '\u{2028}' || c == '\u{2029}' => {}
@@ -298,8 +304,13 @@ pub struct ProofSettings {
     pub ignored_rules: Vec<String>,
     /// Where the grammar server is.
     pub grammar_url: String,
-    /// The owner allows a grammar server that is not on this computer. Off: an address that is not
-    /// this machine's is refused before anything of the message leaves it.
+    /// Use the native host's explicitly installed local server. Kept separately so choosing it
+    /// never overwrites a manual server address. Older settings leave this off.
+    pub managed_server: bool,
+    /// An older settings file's `allowRemote`. The field is still read so that a file written by
+    /// an earlier version opens without an error, and it **never** grants anything: the grammar
+    /// server proofing speaks to is on this computer or there is no server at all
+    /// ([`ProofSettings::grammar_allowed`]).
     pub allow_remote: bool,
     /// The folder the owner keeps dictionaries in. Empty: the usual places
     /// (`/usr/share/hunspell`, `~/.local/share/hunspell`, `/Library/Spelling`…).
@@ -317,6 +328,7 @@ impl Default for ProofSettings {
             personal: Vec::new(),
             ignored_rules: Vec::new(),
             grammar_url: "http://127.0.0.1:8081".into(),
+            managed_server: false,
             allow_remote: false,
             dictionary_dir: String::new(),
         }
@@ -345,22 +357,22 @@ impl ProofSettings {
     }
 
     /// Whether the grammar server may be spoken to at the address in the settings: only this
-    /// computer's, unless the owner allowed another ([`ProofSettings::allow_remote`]). A refused
-    /// address is not spoken to at all, so that a message never leaves this computer because of a
-    /// settings file.
+    /// computer's. [`ProofSettings::allow_remote`] is an older settings file's field and never
+    /// grants anything, so a message never leaves this computer because of a settings file.
     pub fn grammar_allowed(&self) -> bool {
         crate::proof::address_allowed(&self.grammar_url, self.allow_remote)
     }
 
     /// The words of the personal dictionary, in the order they were added, without repeats and no
-    /// more than [`MAX_PERSONAL`].
+    /// more than [`MAX_PERSONAL`]. Only what is one word is kept: an entry with a space or a
+    /// control character inside it is not a word a token could ever be, so it is left out.
     pub fn personal_words(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         for w in &self.personal {
-            let w = w.trim();
-            if w.is_empty() || w.chars().count() > MAX_PERSONAL_WORD || out.len() >= MAX_PERSONAL {
+            if out.len() >= MAX_PERSONAL || !personal_word_ok(w) {
                 continue;
             }
+            let w = w.trim();
             if !out.iter().any(|kept| same_word(kept, w)) {
                 out.push(w.to_string());
             }
@@ -368,11 +380,11 @@ impl ProofSettings {
         out
     }
 
-    /// Adds a word to the personal dictionary; `false` when it is already there, is empty, or the
-    /// dictionary is full.
+    /// Adds a word to the personal dictionary; `false` when it is already there, is not one word,
+    /// or the dictionary is full.
     pub fn add_word(&mut self, word: &str) -> bool {
         let w = word.trim();
-        if w.is_empty() || w.chars().count() > MAX_PERSONAL_WORD || !w.chars().any(char::is_alphabetic) {
+        if !personal_word_ok(w) {
             return false;
         }
         if self.personal_words().iter().any(|kept| same_word(kept, w)) || self.personal.len() >= MAX_PERSONAL {
@@ -390,6 +402,18 @@ impl ProofSettings {
     }
 }
 
+/// Whether `word` is one word the personal dictionary can hold: letters, and only what joins them
+/// inside a word (an apostrophe, a hyphen). A space, a tab or a control character inside it is not
+/// part of a word — no token ever holds one — so an entry with one could never be a match and is
+/// refused instead of kept where it would quietly do nothing.
+pub fn personal_word_ok(word: &str) -> bool {
+    let word = word.trim();
+    !word.is_empty()
+        && word.chars().count() <= MAX_PERSONAL_WORD
+        && word.chars().any(char::is_alphabetic)
+        && !word.chars().any(|c| c.is_whitespace() || c.is_control())
+}
+
 /// Whether two words are the same word, whatever their case and whichever apostrophe: what the
 /// personal dictionary has no two of.
 pub fn same_word(a: &str, b: &str) -> bool {
@@ -405,39 +429,73 @@ pub fn key(word: &str) -> String {
             c => out.extend(c.to_lowercase()),
         }
     }
-    out
+    out.nfc().collect()
 }
 
-/// Whether an address is one the grammar server may be spoken at: `http://` or `https://` to this
-/// computer (loopback, by name or by address), or anywhere when `allow_remote`.
+/// Most characters of a grammar address that are read; a longer one is no address.
+const MAX_GRAMMAR_URL: usize = 2_048;
+
+/// Whether an address is one the grammar server may be spoken at: a plain `http://` or `https://`
+/// address to this computer, and nothing else.
+///
+/// The address is read by the same reader a link in a message is ([`mailcraft_link::WebLink`]),
+/// which refuses a host that is not one and a port that is not one; on top of that it must be a
+/// plain address, with no user information in front of the host (`user@host`), no query and no
+/// fragment, so that what is said to the server is the server and nothing else.
+///
+/// The two schemes are held to different proofs that the server is this computer:
+///
+/// - `http://` may name it (`localhost`, `ip6-localhost`, or a loopback address). The plain
+///   connection filters every address a name resolves to, so a look-up cannot take it elsewhere.
+/// - `https://` must write the address out as a loopback IP literal (`https://127.0.0.1`,
+///   `https://[::1]`). A secure connection in this program has no resolved-address filter, so only
+///   a host the transport dials without a look-up is provably this computer. A name there
+///   (`localhost` in any case, `ip6-localhost`) and a legacy numeric form (`2130706433`, `127.1`,
+///   `0177.0.0.1`) are refused, however the link reader would normalize the host.
+///
+/// `allow_remote` is an older settings file's field. It is accepted so a caller's signature does
+/// not change, and it **never** grants anything: a server that is not on this computer is refused
+/// however it is asked for, so a message never leaves this computer because of a settings file.
 pub fn address_allowed(url: &str, allow_remote: bool) -> bool {
-    let Some((scheme, rest)) = url.trim().split_once("://") else {
-        return false;
-    };
-    let secure = scheme.eq_ignore_ascii_case("https");
-    if !secure && !scheme.eq_ignore_ascii_case("http") {
+    let _ = allow_remote;
+    let url = url.trim();
+    if url.is_empty() || url.len() > MAX_GRAMMAR_URL || url.contains('?') || url.contains('#') {
         return false;
     }
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
-    if authority.is_empty() || authority.contains('@') {
+    let authority = url.split_once("://").map_or("", |(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or_default());
+    if authority.is_empty() || authority.contains('@') || authority.ends_with(':') {
         return false;
     }
-    let host = match authority.strip_prefix('[') {
-        Some(rest) => rest.split(']').next().unwrap_or_default(),
-        None => authority.split(':').next().unwrap_or_default(),
-    };
-    let host = host.to_ascii_lowercase();
-    if host.is_empty() || host.len() > 253 {
-        return false;
+    let Some(link) = mailcraft_link::WebLink::parse(url) else { return false };
+    if link.is_https() {
+        // The host exactly as the transport will read it, never the link reader's normal form: a
+        // name here is resolved by somebody else, and this program's secure dial does not filter
+        // what it resolves to.
+        raw_host(authority).and_then(|host| host.parse::<std::net::IpAddr>().ok()).is_some_and(|ip| ip.is_loopback())
+    } else {
+        is_this_machine(link.host())
     }
-    let _ = secure;
-    allow_remote || is_this_machine(&host)
+}
+
+/// The host of an authority `host[:port]` or `[v6][:port]`, exactly as it is written. The port has
+/// already been read and refused by the link reader; this only takes the host out of the authority.
+fn raw_host(authority: &str) -> Option<&str> {
+    if let Some(v6) = authority.strip_prefix('[') {
+        let (host, after) = v6.split_once(']')?;
+        return match after {
+            "" => Some(host),
+            after => after.strip_prefix(':').map(|_| host),
+        };
+    }
+    Some(authority.split_once(':').map_or(authority, |(host, _)| host))
 }
 
 /// Whether `host` is this computer: loopback by name or by address (and nothing that merely ends
-/// the same way, such as `localhost.example`).
+/// the same way, such as `localhost.example`). An IPv6 address is written in brackets by the link
+/// reader (`[::1]`), and either way is this computer when it is loopback.
 fn is_this_machine(host: &str) -> bool {
-    if host == "localhost" || host == "::1" || host == "ip6-localhost" {
+    let host = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
+    if host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case("ip6-localhost") || host == "::1" {
         return true;
     }
     match host.parse::<std::net::IpAddr>() {
@@ -487,11 +545,11 @@ fn push_word<'a>(text: &'a str, from: usize, to: usize, skip: &[(usize, usize)],
     let Some(piece) = text.get(from..to) else {
         return;
     };
-    let trimmed = piece.trim_matches(|c: char| !c.is_alphanumeric());
+    let trimmed = piece.trim_matches(|c: char| !c.is_alphanumeric() && !is_combining_mark(c));
     if trimmed.is_empty() {
         return;
     }
-    let lead = piece.len() - piece.trim_start_matches(|c: char| !c.is_alphanumeric()).len();
+    let lead = piece.len() - piece.trim_start_matches(|c: char| !c.is_alphanumeric() && !is_combining_mark(c)).len();
     let start = from + lead;
     let end = start + trimmed.len();
     let Some(span) = Span::of(text, start, end) else {
@@ -513,7 +571,7 @@ fn push_word<'a>(text: &'a str, from: usize, to: usize, skip: &[(usize, usize)],
 
 /// A character a word is made of: a letter or a digit, or the apostrophe or hyphen joining two.
 fn is_word_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '\'' || c == '\u{2019}' || c == '-' || c == '_' || c == '.'
+    c.is_alphanumeric() || is_combining_mark(c) || matches!(c, '\'' | '\u{2019}' | '\u{2018}' | '\u{02bc}' | '-' | '_' | '.')
 }
 
 /// Scripts written without spaces between words: a run of them is not a word.
@@ -525,49 +583,45 @@ fn no_spaces_between_words(c: char) -> bool {
 
 /// The places in `text` that are looked at as a whole and never as words: a web address, an
 /// e-mail address, a path, and what a name of a file or a variable looks like.
+///
+/// A run of text between white space and punctuation is looked at once, whatever it holds: every
+/// `@`, `/` or `www.` inside one run is part of the same address, and looking at the run from each
+/// of them is the square of its length. A message is bounded by [`MAX_CHECKED`], so this is too.
 fn skipped(text: &str) -> Vec<(usize, usize)> {
-    let bytes = text.as_bytes();
     let mut out: Vec<(usize, usize)> = Vec::new();
-    let expand = |from: usize, to: usize| {
-        let mut a = from;
-        while a > 0 {
-            let Some(c) = text.get(..a).and_then(|s| s.chars().next_back()) else { break };
-            if c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '<' | '>' | '"' | '\'' | '«' | '»' | ',' | ';') {
-                break;
+    let mut start: Option<usize> = None;
+    for (i, c) in text.char_indices() {
+        let edge = c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '<' | '>' | '"' | '\'' | '«' | '»' | ',' | ';');
+        match (edge, start) {
+            (false, None) => start = Some(i),
+            (true, Some(from)) => {
+                skip_run(text, from, i, &mut out);
+                start = None;
             }
-            a -= c.len_utf8();
-        }
-        let mut b = to;
-        while b < bytes.len() {
-            let Some(c) = text.get(b..).and_then(|s| s.chars().next()) else { break };
-            if c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '<' | '>' | '"' | '\'' | '«' | '»' | ',' | ';') {
-                break;
-            }
-            b += c.len_utf8();
-        }
-        (a, b)
-    };
-    for marker in ["://", "www.", "\\\\"] {
-        let mut from = 0;
-        while let Some(at) = text.get(from..).and_then(|s| s.find(marker)) {
-            let i = from + at;
-            let (a, b) = expand(i, i + marker.len());
-            out.push((a, b));
-            from = b.max(i + marker.len());
+            _ => {}
         }
     }
-    // An e-mail address or a path: `@` or a slash with a name on both sides.
-    for (i, c) in text.char_indices() {
-        if c != '@' && c != '/' {
-            continue;
-        }
-        let (a, b) = expand(i, i + c.len_utf8());
-        let piece = text.get(a..b).unwrap_or_default();
-        let spaced = piece.split(['@', '/']).filter(|p| p.chars().filter(|c| c.is_alphabetic()).count() > 1).count();
-        if spaced >= 2 {
-            out.push((a, b));
-        }
+    if let Some(from) = start {
+        skip_run(text, from, text.len(), &mut out);
     }
     out.sort_unstable();
     out
+}
+
+/// Adds the span of one white-space-free, punctuation-free run when it is an address: a web address
+/// (`://`, `www.`, a path marker), or an e-mail address or path — an `@` or a slash with a name of
+/// more than one letter on more than one side of it.
+fn skip_run(text: &str, from: usize, to: usize, out: &mut Vec<(usize, usize)>) {
+    let Some(piece) = text.get(from..to) else { return };
+    if piece.contains("://") || piece.contains("www.") || piece.contains("\\\\") {
+        out.push((from, to));
+        return;
+    }
+    if !piece.contains('@') && !piece.contains('/') {
+        return;
+    }
+    let named = piece.split(['@', '/']).filter(|p| p.chars().filter(|c| c.is_alphabetic()).count() > 1).count();
+    if named >= 2 {
+        out.push((from, to));
+    }
 }

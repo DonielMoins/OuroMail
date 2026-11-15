@@ -1283,6 +1283,7 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
 
 /// The names [`paint`] draws (not a lettered tile); tests check ribbon icons against it.
 pub const NAMES: &[&str] = &[
+    "spelling",
     "popOut",
     "paste",
     "mail",

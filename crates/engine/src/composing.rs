@@ -9,6 +9,7 @@
 //! message it names is made current while the command runs, and the one that was current is
 //! current again after it. An agent names it whenever more than one is open.
 
+use mailcraft_model::proof::{Language, ProofSettings};
 use serde_json::Value;
 
 use crate::{CmdError, Compose, Session, p};
@@ -16,7 +17,38 @@ use crate::{CmdError, Compose, Session, p};
 /// Most messages being written at once: twelve windows of their own and the reading pane's.
 pub const MAX_COMPOSING: usize = 13;
 
+/// Most raw language codes read for a draft, including duplicates, from commands or saved data.
+pub(crate) const MAX_PROOF_LANGUAGE_CODES: usize = 32;
+
+/// A draft's own language choice, as it is used: each language once, and never more than proofing
+/// knows. `None` when it names none, which leaves the owner's global defaults in place. A saved
+/// draft is a file anybody could have written, so the list is bounded here as well as when it is
+/// set.
+pub(crate) fn chosen_languages(languages: &[Language]) -> Option<Vec<Language>> {
+    let mut out: Vec<Language> = Vec::new();
+    for language in languages.iter().take(MAX_PROOF_LANGUAGE_CODES) {
+        if out.len() >= Language::ALL.len() {
+            break;
+        }
+        if !out.contains(language) {
+            out.push(*language);
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
 impl Session {
+    /// What proofing checks the message being written `compose` against: the owner's global
+    /// preferences with that draft's own language choice laid over them. A draft with no choice,
+    /// or an id that names none open, is the global settings. Nothing is read, and nothing changes.
+    pub fn proof_settings_for(&self, compose: u64) -> ProofSettings {
+        let mut settings = self.prefs.proof.clone();
+        if let Some(languages) = self.composing_by_id(compose).and_then(|c| chosen_languages(c.proof_languages.as_deref().unwrap_or(&[]))) {
+            settings.languages = languages;
+        }
+        settings
+    }
+
     /// Every message being written, the current one first.
     pub fn all_composing(&self) -> impl Iterator<Item = &Compose> {
         self.compose.iter().chain(self.composing.iter())
@@ -79,6 +111,10 @@ impl Session {
         }
         self.compose_seq = self.compose_seq.saturating_add(1);
         c.id = self.compose_seq;
+        // A message opened without a language choice of its own (new, or a draft written before
+        // they were kept) takes the defaults as they are now: later changes to File › Options are
+        // for the messages opened after them, and this one is not made dirty by inheriting.
+        c.proof_languages = Some(chosen_languages(c.proof_languages.as_deref().unwrap_or(&[])).unwrap_or_else(|| self.prefs.proof.active()));
         let behind = self.agent.is_some() && self.compose.as_ref().is_some_and(|c| c.owner_changed);
         if behind {
             self.composing.push(c);
