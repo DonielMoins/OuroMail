@@ -284,6 +284,10 @@ pub struct Message {
     pub answered: bool,
     pub forwarded: bool,
     pub draft: bool,
+    /// The owner's proofreading languages for this draft, kept locally with it. Older drafts
+    /// inherit the defaults when opened. This is not a mail header or a server draft property.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_languages: Option<Vec<crate::proof::Language>>,
     pub pinned: bool,
     /// Its snooze (#949): when it comes back and where it came from; once it has come back, the
     /// mark it wears until opened. `None` for a message never snoozed.

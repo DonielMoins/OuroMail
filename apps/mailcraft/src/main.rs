@@ -84,6 +84,32 @@ mod opened_files;
 mod opened_flow;
 mod own_keys;
 mod picture_cache;
+mod proof_helper;
+#[cfg(test)]
+mod proof_helper_tests;
+mod proof_host;
+mod proof_host_state;
+#[cfg(test)]
+mod proof_host_state_tests;
+#[cfg(test)]
+mod proof_host_tests;
+mod proof_java;
+#[cfg(test)]
+mod proof_java_tests;
+mod proof_native;
+#[cfg(test)]
+mod proof_native_tests;
+mod proof_protocol;
+#[cfg(test)]
+mod proof_protocol_tests;
+mod proof_supervisor;
+#[cfg(test)]
+mod proof_supervisor_tests;
+#[cfg(test)]
+mod proof_wiring_tests;
+mod proofreading;
+#[cfg(test)]
+mod proofreading_tests;
 mod quit;
 #[cfg(target_os = "macos")]
 mod quit_macos;
@@ -367,6 +393,27 @@ fn load_prefs() -> (Option<UiState>, Option<SettingsUnread>) {
 /// aren't saved over it.
 static PREFS_LEFT_IN_PLACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// The inclusive size limit for both reading and writing this version's settings, not a claim
+/// about the largest settings file another version could write.
+const MAX_PREFS_BYTES: usize = 4 << 20;
+
+/// Read a regular file through one handle, counting actual bytes even if it grows while read.
+fn read_pref_bytes(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
+    use std::io::Read as _;
+    let file = mailcraft_engine::io::regular_file(path).map_err(|e| match e {
+        mailcraft_engine::io::ReadError::Io(e) => e,
+        _ => std::io::Error::new(std::io::ErrorKind::InvalidData, "not a regular settings file"),
+    })?;
+    let limit = MAX_PREFS_BYTES.saturating_add(1);
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(limit).map_err(std::io::Error::other)?;
+    file.take(limit as u64).read_to_end(&mut bytes)?;
+    if bytes.len() > MAX_PREFS_BYTES {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "settings are larger than 4 MiB"));
+    }
+    Ok(bytes)
+}
+
 /// The preferences in `path`. A file that can't be read as them (damaged, or written by a version
 /// that keeps them otherwise) is moved aside to `ui.json.damaged` (or `.damaged-2` and on, so an
 /// earlier one is kept), so the next save doesn't overwrite what the owner had set and it can
@@ -374,7 +421,7 @@ static PREFS_LEFT_IN_PLACE: std::sync::atomic::AtomicBool = std::sync::atomic::A
 /// aside, is left where it is and not saved over (the window says which). The log names the kind of error and where in
 /// the file it is, never what the file says.
 fn read_prefs(path: &std::path::Path) -> (Option<UiState>, Option<SettingsUnread>) {
-    let bytes = match std::fs::read(path) {
+    let bytes = match read_pref_bytes(path) {
         Ok(bytes) => bytes,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (None, None),
         Err(e) => {
@@ -437,13 +484,34 @@ fn set_aside(path: &std::path::Path) -> std::io::Result<PathBuf> {
     Ok(aside)
 }
 
+/// Count pretty-serialized bytes before any file is created: a write must not replace readable
+/// settings with a file this reader refuses. Allocation failure is an ordinary write error too.
+struct PrefsBytes(Vec<u8>);
+
+impl std::io::Write for PrefsBytes {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() > MAX_PREFS_BYTES.saturating_sub(self.0.len()) {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "settings are larger than 4 MiB"));
+        }
+        self.0.try_reserve(bytes.len()).map_err(std::io::Error::other)?;
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 /// Write the preferences so that a crash leaves the old file or the whole new one, readable by
-/// its owner only.
+/// its owner only. Refuse an oversized serialization before making a folder or temporary file.
 fn write_prefs(path: &std::path::Path, ui: &UiState) -> std::io::Result<()> {
+    let mut bytes = PrefsBytes(Vec::new());
+    serde_json::to_writer_pretty(&mut bytes, ui).map_err(std::io::Error::other)?;
     if let Some(dir) = path.parent() {
         mailcraft_engine::store::create_private_dir_all(dir)?;
     }
-    mailcraft_engine::store::write_atomic(path, &serde_json::to_vec_pretty(ui).map_err(std::io::Error::other)?)
+    mailcraft_engine::store::write_atomic(path, &bytes.0)
 }
 
 fn save_prefs(app: &MailApp) {
@@ -1073,6 +1141,8 @@ fn services(
     let pst_ctx = ctx.clone();
     let alert_ctx = ctx.clone();
     let autodiscover_ctx = ctx.clone();
+    let proof_ctx = ctx.clone();
+    let proof_server_ctx = ctx.clone();
     let (keys_ctx, keys_store) = (ctx.clone(), secrets::store());
     let attachment_preview = attachment_render::service(&ctx);
     let (sync_ctx, sign_in_ctx, graph_ctx, mx_ctx, test_ctx) = (ctx.clone(), ctx.clone(), ctx.clone(), ctx.clone(), ctx);
@@ -1096,6 +1166,17 @@ fn services(
     Services {
         platform_calls,
         file_dialog: Some(file_dialog),
+        // Draft checks and on-demand suggestions share bounded native workers (#954). Answers
+        // wake the window; no dictionary or connection is touched on the window's thread.
+        proof_native: Some(proof_native::service(std::sync::Arc::new(move || proof_ctx.request_repaint()))),
+        // The older grammar-only hook remains for the Options connection test.
+        proof_check: Some(proofreading::service()),
+        // Construction and status reads are passive. Only an explicit Options action admits
+        // installation discovery, a download, or a private helper bound to this window's life.
+        proof_server: Some(proof_host::service(
+            mailcraft_control_key::settings_dir().filter(|_| prefs_enabled()).map(|base| base.join("proofing")),
+            std::sync::Arc::new(move || proof_server_ctx.request_repaint()),
+        )),
         // Mail arrives in pieces as the run goes (what was sent, then folder by folder), through a
         // channel short enough that a busy window holds the run back instead of piling pieces up.
         sync: Some(Box::new(move |request| {
@@ -1442,6 +1523,15 @@ fn already_open() {
 }
 
 fn main() -> eframe::Result {
+    // The private helper has no mailbox, logger or single-instance state. Inspect only the fixed,
+    // bounded invocation before normal startup; malformed helper arguments fail closed as well.
+    if std::env::args_os().nth(1).is_some_and(|arg| arg == proof_protocol::ENTRY) {
+        let code = match proof_protocol::parse_mode(std::env::args_os().skip(1)) {
+            Some(mode) => proof_helper::run(mode),
+            None => proof_protocol::EXIT_INVOCATION,
+        };
+        std::process::exit(code);
+    }
     // First, so the panic hook and every start-up warning are recorded (`logging`).
     let logger = logging::install();
     logging::install_panic_hook();

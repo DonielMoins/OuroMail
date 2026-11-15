@@ -33,6 +33,10 @@ ring = { workspace = true }
 # The Favorites of Outlook come inside an XML document (`graph::favorites`): read by a reader
 # that takes no DTD and expands no entity.
 quick-xml = { workspace = true }
+ltrs = { workspace = true }
+serde_urlencoded = { workspace = true }
+# The server archive is parsed only after the pinned digest and pre-allocation bounds pass.
+zip = { workspace = true }
 
 # The authorities Windows trusts for secure mail (#30, `anchors`): its certificate store, through
 # the safe wrapper rustls already brings there. MIT.

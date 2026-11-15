@@ -116,6 +116,9 @@ enum Setup {
     Folder,
     /// A change to the Safe Senders to undo, or (`true`) to redo.
     Step(bool),
+    /// The sample's Standard signature open in its editor, whose settings a proofreading
+    /// correction counts as (and whose editor `proof.change` names).
+    Signature,
     /// The account signs in with Microsoft, and the selected to-do is in its To Do list shared
     /// with other people, with a category.
     Shared,
@@ -190,6 +193,15 @@ const ROWS: &[(&str, &str, Setup)] = &[
     // Options, rules, junk, signatures.
     ("mail.dismissWarnings", r#"{"ids": [$message]}"#, Setup::None),
     ("file.options", "{}", Setup::None),
+    // Review › Spelling & Grammar (#954): what is checked, the owner's words and quieted rules,
+    // and a correction in a signature, which counts as the owner's settings.
+    ("proof.set", r#"{"asYouType": false}"#, Setup::None),
+    ("proof.addWord", r#"{"word": "hermetical"}"#, Setup::None),
+    ("proof.removeWord", r#"{"word": "hermetical"}"#, Setup::None),
+    ("proof.ignoreRule", r#"{"rule": "HE_VERB_AGR"}"#, Setup::None),
+    ("proof.forgetRules", "{}", Setup::None),
+    ("proof.ignore", r#"{"rule": "HE_VERB_AGR"}"#, Setup::None),
+    ("proof.change", "{}", Setup::Signature),
     ("sync.offline", "{}", Setup::None),
     ("rules.add", r#"{"name": "x"}"#, Setup::None),
     ("rules.remove", r#"{"id": $rule}"#, Setup::None),
@@ -225,6 +237,7 @@ const ROWS: &[(&str, &str, Setup)] = &[
     ("ui.senderImages", "{}", Setup::None),
     ("ui.desktopAlerts", r#"{"newMail": true}"#, Setup::None),
     ("ui.closeToTray", r#"{"value": true}"#, Setup::None),
+    ("ui.reminderPopups", r#"{"value": false}"#, Setup::None),
     ("ui.repliesInWindow", "{}", Setup::None),
     ("ui.updateCheck", "{}", Setup::None),
     ("ui.updateInstall", "{}", Setup::None),
@@ -316,6 +329,9 @@ fn set_up(a: &mut MailApp, setup: Setup, i: &Ids) {
             let made = a.execute("folder.new", json!({"name": "Old", "parent": i.inbox})).unwrap();
             let id = made["id"].as_u64().unwrap();
             a.execute("folder.select", json!({"id": id})).unwrap();
+        }
+        Setup::Signature => {
+            a.execute("signature.open", json!({"name": "Standard"})).unwrap();
         }
         Setup::Shared => {
             let mb = &mut a.session.mailbox;

@@ -79,7 +79,7 @@ fn kinds(h: &Window) -> Vec<ListKind> {
     h.state().session.compose.as_ref().unwrap().body.text().paragraphs().iter().map(|p| p.list).collect()
 }
 
-/// Inline compose keeps its actions and status separate at compact widths.
+/// Inline compose keeps its actions and status separate at compact widths, in the row or behind `…`.
 #[test]
 fn the_inline_toolbar_fits_its_pane() {
     use egui_kittest::kittest::Queryable as _;
@@ -88,18 +88,51 @@ fn the_inline_toolbar_fits_its_pane() {
     app.execute("mail.new", json!({})).unwrap();
     let mut h = window(app);
     h.state_mut().execute("ui.dismissReminder", json!({"all": true})).unwrap();
+    // A press and a release on `pos`, one pointer event per frame, as the pointer tests do.
+    let click = |h: &mut Window, pos: egui::Pos2| {
+        h.event(Event::PointerMoved(pos));
+        h.step();
+        for pressed in [true, false] {
+            h.event(Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: Modifiers::NONE });
+            h.step();
+        }
+        h.run_steps(2);
+    };
+    let compose = h.state().session.compose_id().expect("the message being written");
+    let action = |what: &str| format!("composeAction:{compose}:{what}");
+    let menu = |what: &str| format!("composeActionMenu:{compose}:{what}");
+    let mut menu_used = false;
     for width in [850.0, 1100.0, 1280.0] {
         h.set_size(egui::vec2(width, 760.0));
         h.run_steps(5);
-        let mut parts: Vec<_> = ["Send", "Attach", "Save draft", "Discard"]
-            .into_iter()
-            .map(|label| {
-                let rect = h.query_all_by_label(label).map(|node| node.rect()).max_by(|a, b| a.min.y.total_cmp(&b.min.y)).unwrap();
-                (label, rect)
-            })
-            .collect();
-        parts.push(("New message", h.get_by_label("New message").rect()));
-        parts.push(("Pop Out", h.state().hit.rect("composePopOut", 0).unwrap()));
+        // Narrow, the row keeps Send and the way out and gives the other actions up to `…`: a
+        // press on that very button opens them, one pointer event a frame.
+        let more = h.state().hit.rect(&action("more"), 0);
+        if let Some(more) = more {
+            menu_used = true;
+            click(&mut h, more.center());
+            for (what, label) in [("attach", "Attach"), ("saveDraft", "Save draft"), ("discard", "Discard")] {
+                let rect = h.state().hit.rect(&menu(what), 0).unwrap_or_else(|| panic!("{width}: {label} is behind `…`"));
+                assert!(h.query_all_by_label(label).any(|node| node.rect().intersects(rect)), "{width}: {label} in `…` is named");
+            }
+        }
+        // Every action is in the row or behind `…`, and only there: the row when it fits, the
+        // menu when it does not.
+        let mut parts: Vec<(&str, egui::Rect)> = Vec::new();
+        let actions = [("Send", "send"), ("Attach", "attach"), ("Save draft", "saveDraft"), ("Discard", "discard"), ("Pop Out", "popOut")];
+        for (label, what) in actions {
+            let rect = h.state().hit.rect(&action(what), 0).or_else(|| h.state().hit.rect(&menu(what), 0));
+            let rect = rect.unwrap_or_else(|| panic!("{width}: {label} is in neither the row nor `…`"));
+            if what != "popOut" {
+                assert!(h.query_all_by_label(label).any(|node| node.rect().intersects(rect)), "{width}: {label} is named where it is drawn");
+            }
+            parts.push((label, rect));
+        }
+        // The title is in the row while it has room and in `…` when it has not; at some widths it
+        // is in both, so each of them is checked against the rest.
+        let titles: Vec<egui::Rect> = h.query_all_by_label("New message").map(|node| node.rect()).collect();
+        assert!(!titles.is_empty(), "{width}: the title is on screen");
+        parts.extend(titles.into_iter().map(|rect| ("New message", rect)));
         let body = h.state().hit.rect("composeBody", 0).unwrap();
         assert!(body.height() > 150.0, "{width}: the toolbar squeezed the body to {body:?}");
         for (i, (label, rect)) in parts.iter().enumerate() {
@@ -108,6 +141,20 @@ fn the_inline_toolbar_fits_its_pane() {
                 assert!(!rect.shrink(0.5).intersects(other_rect.shrink(0.5)), "{width}: {label} over {other}");
             }
         }
+        // The same `…` closes what it opened, so the next width starts with no menu on screen.
+        if let Some(more) = more {
+            click(&mut h, more.center());
+            for what in ["attach", "saveDraft", "discard"] {
+                assert!(h.state().hit.rect(&menu(what), 0).is_none(), "{width}: {what} is still in `…`");
+            }
+        }
+    }
+    // The compact widths really are compact: at least one gave the other actions up to `…`.
+    assert!(menu_used, "no width left an action to `…`");
+    // The last width still draws the full row: folding is only for the narrower panes.
+    assert!(h.state().hit.rect(&action("more"), 0).is_none(), "1280: the whole row fits without `…`");
+    for what in ["send", "attach", "saveDraft", "discard"] {
+        assert!(h.state().hit.rect(&action(what), 0).is_some(), "1280: {what} is still in `…`");
     }
 }
 

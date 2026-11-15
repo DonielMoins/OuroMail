@@ -731,7 +731,7 @@ msgid "Actual Size"
 msgstr "Dimensiune reală"
 
 #. interface
-#: crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/forms/junk.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/forms/junk.rs
 #, fuzzy
 msgid "Add"
 msgstr "Adăugare"
@@ -855,6 +855,11 @@ msgid "Add a task to {address} (it waits here until To Do is allowed)"
 msgstr "Adăugați o sarcină la {address} (așteaptă aici până când To Do e permis)"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Add a word"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup.rs
 #, fuzzy
 msgid "Add an account"
@@ -917,6 +922,11 @@ msgstr ""
 #, fuzzy
 msgid "Add to Contacts"
 msgstr "Adăugare la Contacte"
+
+#. command label, interface, name
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Add to Dictionary"
+msgstr ""
 
 #. command label, interface
 #: crates/engine/src/cmd/folder.rs crates/engine/src/cmd/people.rs crates/ui-egui/src/people_view.rs
@@ -1685,6 +1695,11 @@ msgid "Asking your domain's DNS…"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Asking…"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup/help.rs
 #, fuzzy
 msgid "Asks for mail alone, without the calendar and contacts, which can be connected later"
@@ -2116,10 +2131,25 @@ msgid "Bring in"
 msgstr "Preluare"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Browse…"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/chrome.rs
 #, fuzzy
 msgid "Building the index search answers from; until it is done, some older mail is searched more slowly"
 msgstr "Se construiește indexul pe care se bazează căutarea; până e gata, unele e-mailuri mai vechi se caută mai încet"
+
+#. command label
+#: crates/ui-egui/src/lib.rs
+msgid "Built-in Proofing Server"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Built-in server:"
+msgstr ""
 
 #. command label, ribbon
 #: crates/engine/src/cmd/format.rs crates/ui-egui/src/ribbon.rs
@@ -2336,10 +2366,25 @@ msgid "Cancel This Meeting?"
 msgstr "Anulați această întâlnire?"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Cancel download"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/calendar_view.rs
 #, fuzzy
 msgid "Cancelled"
 msgstr "Anulat"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Cancelling…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Cancelling… the work stops once its cleanup has finished."
+msgstr ""
 
 #. interface, name
 #: crates/engine/src/session.rs crates/ui-egui/src/advanced_search.rs crates/ui-egui/src/backstage.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/merge_contacts.rs crates/ui-egui/src/tasks_view.rs
@@ -2382,6 +2427,11 @@ msgstr "Cc: {names}"
 #, fuzzy
 msgid "Certificates"
 msgstr "Certificate"
+
+#. command label, interface, name
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Change"
+msgstr ""
 
 #. ribbon
 #: crates/ui-egui/src/ribbon.rs
@@ -2457,6 +2507,11 @@ msgstr "Modificați numele, serverele și conectarea acestui cont"
 #, fuzzy
 msgid "Change this account's name, sign-in and mail to keep offline"
 msgstr "Modificați numele, conectarea și e-mailul păstrat offline pentru acest cont"
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Change to"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/reading/signature.rs
@@ -2552,6 +2607,11 @@ msgstr "Verificare din nou"
 msgid "Check Calendar Connection"
 msgstr "Verificare conexiune calendar"
 
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Check Every Rule Again"
+msgstr ""
+
 #. command label, interface
 #: crates/engine/src/cmd/compose.rs crates/ui-egui/src/forms.rs
 #, fuzzy
@@ -2564,6 +2624,11 @@ msgstr "Verificare nume"
 msgid "Check Now"
 msgstr "Verificare acum"
 
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Check Spelling"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup.rs
 msgid "Check both servers before you connect."
@@ -2574,6 +2639,11 @@ msgstr ""
 #, fuzzy
 msgid "Check daily for new versions of MailCraft, and download and install them when you quit? Only GitHub is asked; nothing about you or your mail is sent."
 msgstr "Verificați zilnic dacă există versiuni noi de MailCraft, cu descărcare și instalare la închidere? Se întreabă doar GitHub; nu se trimite nimic despre dvs. sau despre e-mailurile dvs."
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check every rule again"
+msgstr ""
 
 #. command label
 #: crates/ui-egui/src/lib.rs
@@ -2594,10 +2664,30 @@ msgid "Check for new versions"
 msgstr "Verificare versiuni noi"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/proof.rs
+msgid "Check grammar with a LanguageTool server"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check installation"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check spelling as you write"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup.rs
 #, fuzzy
 msgid "Check the account's settings"
 msgstr "Verificați setările contului"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Check while typing, not only when asked"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/security.rs
@@ -2648,7 +2738,7 @@ msgid "Checking: the report comes in a moment…"
 msgstr "Se verifică: raportul vine imediat…"
 
 #. interface
-#: crates/ui-egui/src/updates.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/proof_dialog.rs crates/ui-egui/src/updates.rs
 #, fuzzy
 msgid "Checking…"
 msgstr "Se verifică…"
@@ -2803,8 +2893,8 @@ msgstr "Clic pentru previzualizarea {name}; dublu clic pentru deschidere"
 msgid "Clipboard"
 msgstr "Clipboard"
 
-#. interface, ribbon
-#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/account_setup/exchange.rs crates/ui-egui/src/compose.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/find_replace.rs crates/ui-egui/src/folder_properties.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/import_pst.rs crates/ui-egui/src/meeting_dialogs.rs crates/ui-egui/src/meeting_dialogs/share.rs crates/ui-egui/src/merge_contacts.rs crates/ui-egui/src/reminders.rs crates/ui-egui/src/report_problem.rs crates/ui-egui/src/ribbon.rs crates/ui-egui/src/symbol.rs crates/ui-egui/src/sync_panel.rs crates/ui-egui/src/tasks_view.rs crates/ui-egui/src/view_source.rs
+#. interface, name, ribbon
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/account_setup/exchange.rs crates/ui-egui/src/compose.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/find_replace.rs crates/ui-egui/src/folder_properties.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/import_pst.rs crates/ui-egui/src/meeting_dialogs.rs crates/ui-egui/src/meeting_dialogs/share.rs crates/ui-egui/src/merge_contacts.rs crates/ui-egui/src/proof_dialog.rs crates/ui-egui/src/reminders.rs crates/ui-egui/src/report_problem.rs crates/ui-egui/src/ribbon.rs crates/ui-egui/src/symbol.rs crates/ui-egui/src/sync_panel.rs crates/ui-egui/src/tasks_view.rs crates/ui-egui/src/view_source.rs
 #, fuzzy
 msgid "Close"
 msgstr "Închidere"
@@ -2838,6 +2928,11 @@ msgstr "Închidere căutare"
 #, fuzzy
 msgid "Close Signature"
 msgstr "Închidere semnătură"
+
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Close Spelling & Grammar"
+msgstr ""
 
 #. command label
 #: crates/ui-egui/src/lib.rs
@@ -3781,6 +3876,21 @@ msgstr "Diagnosticul a fost copiat. Nu s-a trimis nimic."
 msgid "Diagram"
 msgstr "Diagramă"
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Dictionaries"
+msgstr ""
+
+#. command label
+#: crates/ui-egui/src/lib.rs
+msgid "Dictionary Folder"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Dictionary folder"
+msgstr ""
+
 #. command label
 #: crates/engine/src/cmd/mail.rs
 #, fuzzy
@@ -3901,6 +4011,11 @@ msgid "Display name"
 msgstr "Nume afișat"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Display reminder windows when calendar appointments are due. Disabling this option does not remove reminders from appointments."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/forms.rs
 #, fuzzy
 msgid "Do"
@@ -3990,8 +4105,8 @@ msgstr "Gata: {n} noi"
 msgid "Double-click to open {name}; right-click to save it"
 msgstr "Dublu clic pentru a deschide {name}; clic dreapta pentru a-l salva"
 
-#. ribbon location
-#: crates/engine/src/cmd/send_receive.rs
+#. interface, ribbon location
+#: crates/engine/src/cmd/send_receive.rs crates/ui-egui/src/backstage.rs
 #, fuzzy
 msgid "Download"
 msgstr "Descărcare"
@@ -4031,6 +4146,11 @@ msgstr "Descărcare imagini în toate e-mailurile"
 #, fuzzy
 msgid "Download Pictures in Mail Automatically"
 msgstr "Descărcare automată imagini din e-mail"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Download fetches the official LanguageTool server archive over HTTPS from its own project and unpacks it into MailCraft's own folder. The licences and notices that come with LanguageTool stay in the installed copy, which is where they remain; the archive itself is not kept after that. Nothing is downloaded until you press Download."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/dialogs.rs
@@ -4130,6 +4250,16 @@ msgstr "Se descarcă {done} din {all}"
 #, fuzzy
 msgid "Downloading {done} of {all} · {large} large messages download when opened"
 msgstr "Se descarcă {done} din {all} · {large} mesaje mari se descarcă la deschidere"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Downloading… {percent}% ({so_far} of {total})"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Downloading… {so_far} so far"
+msgstr ""
 
 #. interface, ribbon
 #: crates/ui-egui/src/compose.rs crates/ui-egui/src/ribbon.rs
@@ -4417,6 +4547,16 @@ msgstr "Se termină"
 msgid "Ends before it starts"
 msgstr "Se termină înainte să înceapă"
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "English (Canada)"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "English (United States)"
+msgstr ""
+
 #. ribbon
 #: crates/ui-egui/src/ribbon.rs
 #, fuzzy
@@ -4470,6 +4610,11 @@ msgstr "Toate celelalte ore propuse pentru această întâlnire."
 #, fuzzy
 msgid "Every weekday"
 msgstr "În fiecare zi lucrătoare"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Every word is looked at against every dictionary that is on, and a word is right when any of them knows it: English and French in one sentence need no switching."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/backstage.rs
@@ -4622,6 +4767,11 @@ msgstr "Export…"
 #, fuzzy
 msgid "External"
 msgstr "Extern"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Extracting… how much is left is not known."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/calendar_sync.rs
@@ -5126,6 +5276,16 @@ msgstr "Liber"
 msgid "Free and Busy Times"
 msgstr "Ore libere și ocupate"
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "French (Canada)"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "French (France)"
+msgstr ""
+
 #. date and time, name
 #: crates/i18n/src/date.rs crates/time/src/lib.rs
 #, fuzzy
@@ -5540,6 +5700,16 @@ msgstr "Conectarea Google a fost refuzată"
 msgid "Grab bag"
 msgstr "Diverse"
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "Grammar is checked by a LanguageTool server; this build has none to ask."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Grammar:"
+msgstr ""
+
 #. interface, name
 #: crates/ui-egui/src/backstage.rs crates/ui-egui/src/theme/accent.rs
 #, fuzzy
@@ -5855,6 +6025,21 @@ msgstr "Dacă aveți propriul cont de administrator, prima opțiune vă permite 
 #, fuzzy
 msgid "If you have one, paste its application (client) ID here. It comes from a Microsoft Entra app registration: a public client with the redirect URI http://localhost, for accounts in any directory and personal accounts."
 msgstr "Dacă aveți unul, lipiți aici ID-ul aplicației (client). Provine dintr-o înregistrare de aplicație Microsoft Entra: un client public cu URI-ul de redirecționare http://localhost, pentru conturi din orice director și conturi personale."
+
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Ignore Grammar Rule"
+msgstr ""
+
+#. command label, interface, name
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Ignore Once"
+msgstr ""
+
+#. interface, name
+#: crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Ignore This Rule"
+msgstr ""
 
 #. ribbon, ribbon location
 #: crates/engine/src/cmd/picture.rs crates/ui-egui/src/ribbon.rs
@@ -6313,6 +6498,21 @@ msgid "Issued to"
 msgstr "Emis pentru"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "It could not be unpacked into MailCraft's folder."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "It did not answer in time."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "It did not start."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 #, fuzzy
 msgid "It goes as mail from the Outbox at the next Send/Receive, with the item attached as an iCalendar file."
@@ -6488,6 +6688,26 @@ msgstr "ian."
 #, fuzzy
 msgid "January"
 msgstr "ianuarie"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer is needed to start it."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer is not installed. MailCraft never installs Java: install it yourself, then press Check installation."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer is not installed. MailCraft never installs Java: install it yourself."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Java 17 or newer: found."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/forms.rs crates/ui-egui/src/merge_contacts.rs
@@ -6670,6 +6890,11 @@ msgstr "Cheie publică păstrată"
 
 #. interface
 #: crates/ui-egui/src/backstage.rs
+msgid "Kept as it is: the built-in server is the one in use."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
 #, fuzzy
 msgid "Kept in the system's credential store, never in the mailbox or its settings. Without it you sign in again each time MailCraft starts."
 msgstr "Păstrată în depozitul de acreditări al sistemului, niciodată în cutia poștală sau în setările ei. Fără ea, vă conectați din nou de fiecare dată când pornește MailCraft."
@@ -6715,6 +6940,11 @@ msgstr "Etichetă"
 #, fuzzy
 msgid "Language"
 msgstr "Limbă"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "LanguageTool needs Java 17 or newer, which MailCraft does not download or install."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/backstage.rs
@@ -6799,6 +7029,11 @@ msgstr "Las-o neverificată"
 #, fuzzy
 msgid "Leave this account out of this Send/Receive"
 msgstr "Excludeți acest cont din această Trimitere/primire"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Let MailCraft download and run LanguageTool on this computer"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/account_setup.rs
@@ -7123,6 +7358,11 @@ msgid "Mail, calendar, people and tasks, written from scratch in Rust. It runs n
 msgstr "E-mail, calendar, persoane și sarcini, scris de la zero în Rust. Rulează nativ pe macOS, Windows, Linux și BSD, precum și în browser."
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "MailCraft can fetch the official LanguageTool server and keep it in MailCraft's own folder. It needs Java 17 or newer, which MailCraft does not install. Nothing is checked, downloaded, started, or stopped except by a button below."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/graph_switch.rs
 #, fuzzy
 msgid "MailCraft can now keep {account} in step with Microsoft through Microsoft Graph, the way Outlook on the web does, instead of IMAP. Your folders, flags, categories and drafts then match what you see in Outlook, and your mail keeps coming even where your organisation has turned IMAP off."
@@ -7139,6 +7379,11 @@ msgstr "MailCraft nu poate păstra regulile acestui cont pe serverul lui"
 #, fuzzy
 msgid "MailCraft can't sign in to this server this way yet (it wants Kerberos). Ask your administrator whether it can take a user name and password over an encrypted connection."
 msgstr "MailCraft nu se poate conecta încă la acest server în acest fel (cere Kerberos). Întrebați administratorul dacă poate accepta un nume de utilizator și o parolă printr-o conexiune criptată."
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "MailCraft could not verify the LanguageTool files. The checksum pinned in this MailCraft build and the installed-file manifest were computed from the official HTTPS archive when the pin was prepared; they are not signed or supplied by upstream. An existing installation is never overwritten, and temporary files are cleaned up when possible. Check installation looks at what is on this computer."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/approval.rs
@@ -7829,7 +8074,7 @@ msgid "More about this"
 msgstr "Mai multe despre aceasta"
 
 #. interface
-#: crates/ui-egui/src/forms.rs crates/ui-egui/src/ribbon.rs
+#: crates/ui-egui/src/compose.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/ribbon.rs
 #, fuzzy
 msgid "More commands"
 msgstr "Mai multe comenzi"
@@ -8046,6 +8291,11 @@ msgstr "Organizația mea trebuie întâi să aprobe MailCraft: ce trebuie făcut
 #, fuzzy
 msgid "Name"
 msgstr "Nume"
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "Name the grammar server's address first."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/scheduling.rs
@@ -8677,6 +8927,11 @@ msgid "No such account"
 msgstr "Contul nu există"
 
 #. interface
+#: crates/ui-egui/src/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "No suggestions"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/credits.rs
 #, fuzzy
 msgid "No testers credited yet."
@@ -8743,7 +8998,7 @@ msgid "None"
 msgstr "Niciunul"
 
 #. interface
-#: crates/ui-egui/src/forms.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/forms.rs
 #, fuzzy
 msgid "None yet."
 msgstr "Încă nimic."
@@ -8835,6 +9090,11 @@ msgstr ""
 #, fuzzy
 msgid "Not in Outlook's list: no colour there"
 msgstr "Nu este în lista Outlook: acolo nu are culoare"
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Not in dictionary:"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/backstage.rs
@@ -9025,6 +9285,11 @@ msgstr "oct."
 #, fuzzy
 msgid "October"
 msgstr "octombrie"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Off: Review › Spelling & Grammar checks the message when it is asked to."
+msgstr ""
 
 #. name
 #: crates/time/src/lib.rs
@@ -10099,10 +10364,15 @@ msgid "Promotions"
 msgstr "Promoții"
 
 #. ribbon, ribbon location
-#: crates/engine/src/cmd/writing_tools.rs crates/ui-egui/src/ribbon.rs
+#: crates/engine/src/cmd/proof.rs crates/engine/src/cmd/writing_tools.rs crates/ui-egui/src/ribbon.rs
 #, fuzzy
 msgid "Proofing"
 msgstr "Verificare"
+
+#. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Proofing languages"
+msgstr ""
 
 #. ribbon, ribbon location
 #: crates/engine/src/cmd/folder.rs crates/ui-egui/src/ribbon.rs
@@ -10317,6 +10587,11 @@ msgstr "Se citește calendarul de la Microsoft…"
 #, fuzzy
 msgid "Reading your automatic replies from the server…"
 msgstr "Se citesc răspunsurile automate de pe server…"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Reading: {names}"
+msgstr ""
 
 #. name
 #: crates/ui-egui/src/credits.rs
@@ -10606,6 +10881,11 @@ msgstr ""
 msgid "Remove from Calendar"
 msgstr "Eliminare din calendar"
 
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Remove from Dictionary"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/people_view.rs
 #, fuzzy
@@ -10617,6 +10897,11 @@ msgstr "Eliminare din Favorite"
 #, fuzzy
 msgid "Remove from Safe or Blocked Senders"
 msgstr "Eliminare din Expeditori siguri sau blocați"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Remove it from the dictionary"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/backstage.rs
@@ -10919,7 +11204,7 @@ msgid "Reverse the order"
 msgstr "Inversați ordinea"
 
 #. ribbon location
-#: crates/engine/src/cmd/writing_tools.rs
+#: crates/engine/src/cmd/proof.rs crates/engine/src/cmd/writing_tools.rs
 #, fuzzy
 msgid "Review"
 msgstr "Revizuire"
@@ -11137,7 +11422,7 @@ msgid "Saturday"
 msgstr "sâmbătă"
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/signatures.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/backstage.rs crates/ui-egui/src/dialogs.rs crates/ui-egui/src/forms.rs crates/ui-egui/src/signatures.rs
 #, fuzzy
 msgid "Save"
 msgstr "Salvare"
@@ -12025,6 +12310,11 @@ msgid "September"
 msgstr "septembrie"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Server"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/account_setup.rs
 #, fuzzy
 msgid "Server Certificate"
@@ -12274,6 +12564,11 @@ msgstr ""
 #, fuzzy
 msgid "Show as Conversations"
 msgstr "Afișare ca conversații"
+
+#. command label, interface
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/lib.rs
+msgid "Show calendar reminder pop-ups"
+msgstr ""
 
 #. command label
 #: crates/engine/src/cmd/calendar/invitation.rs
@@ -12847,9 +13142,31 @@ msgstr "Spațiul ocupat de e-mailurile mai vechi"
 
 #. ribbon
 #: crates/ui-egui/src/ribbon.rs
+msgid ""
+"Spelling &\n"
+"Grammar"
+msgstr ""
+
+#. command label, interface
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/backstage.rs crates/ui-egui/src/dialogs.rs
 #, fuzzy
 msgid "Spelling & Grammar"
 msgstr "Ortografie și gramatică"
+
+#. command label
+#: crates/engine/src/cmd/proof.rs
+msgid "Spelling & Grammar Settings"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Spelling check is complete."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "Spelling is checked by the host, and this build has none to ask."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/calendar_view.rs
@@ -12888,13 +13205,18 @@ msgid "Start over"
 msgstr "Reluare de la început"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Start server"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/auto_replies.rs
 #, fuzzy
 msgid "Start time:"
 msgstr "Ora de început:"
 
 #. interface
-#: crates/ui-egui/src/sync_panel.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/sync_panel.rs
 #, fuzzy
 msgid "Starting…"
 msgstr "Se pornește…"
@@ -12966,6 +13288,11 @@ msgid "Stop processing more rules"
 msgstr "Oprire procesare alte reguli"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Stop server"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/chrome.rs crates/ui-egui/src/sync_panel.rs
 #, fuzzy
 msgid "Stop this Send/Receive; what has arrived stays"
@@ -13002,10 +13329,15 @@ msgid "Stopped; carries on from here next time"
 msgstr "Oprit; continuă de aici data viitoare"
 
 #. interface
-#: crates/ui-egui/src/chrome.rs crates/ui-egui/src/lib.rs
+#: crates/ui-egui/src/backstage.rs crates/ui-egui/src/chrome.rs crates/ui-egui/src/lib.rs
 #, fuzzy
 msgid "Stopping…"
 msgstr "Se oprește…"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Stopping… the server stops once the helper has been reaped."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/import_pst.rs
@@ -13024,6 +13356,11 @@ msgstr "Stradă"
 #, fuzzy
 msgid "Stronger text and edges, in the light or the dark theme."
 msgstr "Text și margini mai pronunțate, în tema luminoasă sau întunecată."
+
+#. interface
+#: crates/ui-egui/src/proof_dialog.rs
+msgid "Style:"
+msgstr ""
 
 #. ribbon
 #: crates/ui-egui/src/ribbon.rs
@@ -13066,6 +13403,11 @@ msgstr "Sugerare setări cont"
 #, fuzzy
 msgid "Suggest Recipients"
 msgstr "Sugerare destinatari"
+
+#. command label, interface
+#: crates/engine/src/cmd/proof.rs crates/ui-egui/src/proof_dialog.rs
+msgid "Suggestions"
+msgstr ""
 
 #. date and time, name
 #: crates/i18n/src/date.rs crates/time/src/lib.rs
@@ -13319,6 +13661,11 @@ msgid "Tentatively accepted on {when}"
 msgstr "Acceptat provizoriu la {when}"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Test the connection"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/credits.rs
 #, fuzzy
 msgid "Testers are credited when they say so; see docs/contributors.md."
@@ -13408,6 +13755,16 @@ msgid "That file isn't a key file: it is empty, or larger than one is."
 msgstr "Acel fișier nu este un fișier de cheie: este gol sau mai mare decât unul."
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "That folder's path holds a NUL character, which no folder may have. Nothing was changed: the folder in the settings stays as it was."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "That folder's path is longer than 1024 bytes, which is the most a setting keeps. Nothing was changed: the folder in the settings stays as it was."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/reading/remote.rs
 #, fuzzy
 msgid "That is not a domain"
@@ -13461,6 +13818,11 @@ msgstr "Aceasta nu este parola acestui fișier."
 msgid "That key is on the card already"
 msgstr "Cheia aceea este deja pe card"
 
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "That server is on another computer, and File › Options does not allow one."
+msgstr ""
+
 #. what a command says
 #: crates/mobile/src/sync.rs crates/mobile/src/sync_api.rs
 msgid "That sign-in is for somebody else's mailbox, not this account's. Nothing was kept."
@@ -13506,6 +13868,21 @@ msgstr "Semnătura digitală a expirat."
 #, fuzzy
 msgid "The Entire Series"
 msgstr "Toată seria"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The Java on this computer is older than 17."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The Java on this computer is older than 17. LanguageTool needs Java 17 or newer, installed separately; MailCraft will not install it."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The Java on this computer is older than 17. LanguageTool needs Java 17 or newer, installed separately; MailCraft will not install it. Install it yourself, then press Check installation."
+msgstr ""
 
 #. what a command says
 #: crates/mobile/src/sync_api.rs
@@ -13619,6 +13996,26 @@ msgstr "Browserul nu poate citi fișiere după cale"
 #, fuzzy
 msgid "The browser opens no files from the system"
 msgstr "Browserul nu deschide fișiere din sistem"
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "The built-in grammar server is not running."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "The built-in grammar server's address is not one this computer may use."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The built-in server is busy with another request; nothing else was started."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The built-in server is not available in this build or on this computer, so there is nothing here to check, download, or start."
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/cmd/remote.rs
@@ -13889,6 +14286,21 @@ msgid "The domain {domain} names a server for automatic setup (Autodiscover). Ex
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The download did not finish."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The downloaded archive could not be read, so nothing was installed. An existing installation is never overwritten, and temporary files are cleaned up when possible. Check installation looks at what is on this computer."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The downloaded archive could not be read."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/dialogs.rs
 #, fuzzy
 msgid "The e-mail address of the person whose calendar you want to open"
@@ -14035,6 +14447,16 @@ msgid "The key was removed from this computer."
 msgstr "Cheia a fost eliminată de pe acest computer."
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The last operation did not finish, and no further detail was reported. Check installation looks at what is on this computer; nothing is repaired or replaced automatically."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The last operation was cancelled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/favorites_sync.rs
 #, fuzzy
 msgid "The link is on the clipboard: send it to your organisation's administrator"
@@ -14133,6 +14555,11 @@ msgstr "Mesajul este în clipboard: lipiți-l într-un e-mail sau chat pentru ad
 #, fuzzy
 msgid "The message isn't there any more"
 msgstr "Mesajul nu mai există"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "The message text is sent only to a LanguageTool server on this computer. Remote grammar servers are not supported."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/reading/signature.rs
@@ -14372,6 +14799,11 @@ msgstr "Serverul a răspuns fără adresa Exchange Web Services. Cereți-o admin
 #, fuzzy
 msgid "The server answered, but not as an Exchange server does. Check its address in Server settings."
 msgstr "Serverul a răspuns, dar nu ca un server Exchange. Verificați-i adresa în Setări server."
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "The server answered:"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
@@ -14768,6 +15200,11 @@ msgstr "Aici nu există un dosar de date de deschis"
 msgid "There is no earlier version to go back to."
 msgstr "Nu există o versiune anterioară la care să reveniți."
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "There is no installed copy to start."
+msgstr ""
+
 #. what a command says
 #: crates/engine/src/cmd/calendar_settings.rs
 #, fuzzy
@@ -15086,6 +15523,16 @@ msgid "This build can't sign in to this kind of account. Use the desktop app."
 msgstr "Această versiune nu se poate conecta la acest tip de cont. Folosiți aplicația desktop."
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "This build cannot run a built-in LanguageTool server. Turn this switch off to use the address kept in Server: install LanguageTool yourself and name its address there."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "This build cannot run the built-in grammar server."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/updates.rs
 #, fuzzy
 msgid "This build doesn't check for new versions."
@@ -15094,6 +15541,16 @@ msgstr "Această versiune nu verifică dacă există versiuni noi."
 #. what a command says
 #: crates/mobile/src/sync_api.rs
 msgid "This build has no application id to sign in with."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "This build has no folder dialog: type the folder instead."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/proof.rs
+msgid "This build has no grammar server to ask."
 msgstr ""
 
 #. interface
@@ -15113,6 +15570,11 @@ msgstr "Acest calendar nu este încă conectat la contul dvs. Ce se schimbă în
 #, fuzzy
 msgid "This certificate's key is of a kind MailCraft doesn't use: only ECDSA on P-256 or P-384 is imported here."
 msgstr "Cheia acestui certificat este de un tip pe care MailCraft nu îl folosește: aici se importă doar ECDSA pe P-256 sau P-384."
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "This computer cannot perform that operation."
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
@@ -16278,6 +16740,11 @@ msgid "Use an app password instead"
 msgstr "Folosiți în schimb o parolă de aplicație"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Use installed dictionaries"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/calendar_view.rs
 #, fuzzy
 msgid "Use my own working hours"
@@ -16541,6 +17008,11 @@ msgid "What to do next"
 msgstr "Ce urmează"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "What was downloaded did not match the checksum this build pins for the official archive."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/graph_fetch.rs
 #, fuzzy
 msgid "What was waiting for the form to be closed was called off: another download took its place."
@@ -16630,6 +17102,16 @@ msgstr "Acolo unde spune fișa că se află cheia: MailCraft nu o preia."
 #, fuzzy
 msgid "Where they differ, the kept contact has:"
 msgstr "Unde diferă, contactul păstrat are:"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Whether Java 17 or newer is installed is not known: MailCraft has not looked yet, or found a Java it could not probe. Check installation looks again. MailCraft does not install Java."
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Whether Java 17 or newer is installed is not known: MailCraft has not looked yet, or found a Java it could not probe. MailCraft does not install Java."
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/cmd/calendar.rs
@@ -17232,6 +17714,11 @@ msgid "Your own name."
 msgstr "Numele dvs."
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "Your own words"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/mail_view.rs
 #, fuzzy
 msgid "Z on top"
@@ -17316,7 +17803,7 @@ msgid "`notice` is installsItself or didntStart"
 msgstr "`notice` este installsItself sau didntStart"
 
 #. interface
-#: crates/ui-egui/src/updates.rs
+#: crates/ui-egui/src/lib.rs crates/ui-egui/src/updates.rs
 #, fuzzy
 msgid "`value` is true or false"
 msgstr "`value` este true sau false"
@@ -17676,11 +18163,21 @@ msgstr "nu se poate face în browser"
 msgid "can't be read"
 msgstr "nu poate fi citit"
 
-#. what a command says
-#: crates/engine/src/import_tree.rs
+#. interface, what a command says
+#: crates/engine/src/import_tree.rs crates/ui-egui/src/backstage.rs
 #, fuzzy
 msgid "cancelled"
 msgstr "anulat"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "cancelling…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "checking the installation…"
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/cmd/mail.rs
@@ -17730,6 +18227,11 @@ msgstr "{host} nu a putut fi contactat: {reason}"
 msgid "day"
 msgstr "zi"
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "downloading…"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs crates/proto/src/imap/password.rs
 #, fuzzy
@@ -17747,6 +18249,16 @@ msgstr "introduceți un nume de utilizator pentru conectare"
 #, fuzzy
 msgid "everybody at @{domain}"
 msgstr "toți cei de la @{domain}"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "extracting…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "failed"
+msgstr ""
 
 #. folder name
 #: crates/model/src/mailbox.rs
@@ -17868,6 +18380,11 @@ msgstr "în {time}"
 #, fuzzy
 msgid "incomplete"
 msgstr "incomplet"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "installed, not running"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/data_removal.rs
@@ -18376,6 +18893,21 @@ msgid "not allowed on the server yet: File › Info › Ask again"
 msgstr "încă nepermis pe server: Fișier › Informații › Întrebați din nou"
 
 #. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "not available on this computer"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "not checked yet"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "not installed"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/ews_setup.rs
 #, fuzzy
 msgid "not known until the first Send/Receive"
@@ -18525,6 +19057,11 @@ msgstr "readOnly"
 msgid "replies can go to at most {n} addresses"
 msgstr "răspunsurile pot merge la cel mult {n} adrese"
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "running"
+msgstr ""
+
 #. name
 #: crates/engine/src/agent.rs
 #, fuzzy
@@ -18609,6 +19146,21 @@ msgstr "conectarea a eșuat: {reason}"
 msgid "someone@example.org or @example.org"
 msgstr "cineva@example.org sau @example.org"
 
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "starting…"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "stopped"
+msgstr ""
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "stopping…"
+msgstr ""
+
 #. what a command says
 #: crates/engine/src/cmd/calendar.rs
 #, fuzzy
@@ -18618,6 +19170,11 @@ msgstr "acel eveniment nu se repetă"
 #. what a command says
 #: crates/mobile/src/message.rs
 msgid "that is not a picture that can be shown"
+msgstr ""
+
+#. what a command says
+#: crates/model/src/rich/body.rs
+msgid "that is not a stretch of the text"
 msgstr ""
 
 #. what a command says
@@ -19785,6 +20342,11 @@ msgstr "această serie are prea multe zile anulate"
 msgid "this series has too many changed days"
 msgstr "această serie are prea multe zile modificate"
 
+#. what a command says
+#: crates/engine/src/cmd/signature.rs
+msgid "this session has no signature editor left to open"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/forms.rs
 #, fuzzy
@@ -20560,11 +21122,16 @@ msgstr "{name}: nu este un fișier de mesaj"
 msgid "{name}: not a message, calendar or contact file MailCraft reads"
 msgstr "{name}: nu este un fișier de mesaj, calendar sau contact pe care îl citește MailCraft"
 
-#. what a command says
-#: crates/model/src/message.rs
+#. interface, what a command says
+#: crates/model/src/message.rs crates/ui-egui/src/backstage.rs
 #, fuzzy
 msgid "{n} KB"
 msgstr "{n} KB"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "{n} MB"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/security.rs
@@ -20619,6 +21186,11 @@ msgid_plural "{n} bytes"
 msgstr[0] "{n} octet"
 msgstr[1] "{n} octeți"
 msgstr[2] "{n} de octeți"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "{n} bytes"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/import_pst.rs
@@ -20751,6 +21323,14 @@ msgid_plural "{n} folders"
 msgstr[0] "{n} dosar"
 msgstr[1] "{n} dosare"
 msgstr[2] "{n} de dosare"
+
+#. interface
+#: crates/ui-egui/src/backstage.rs
+msgid "{n} grammar rule is quiet"
+msgid_plural "{n} grammar rules are quiet"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #. interface
 #: crates/ui-egui/src/merge_contacts.rs
@@ -21074,7 +21654,7 @@ msgstr[1] "{n} fără răspuns"
 msgstr[2] "{n} fără răspuns"
 
 #. interface
-#: crates/ui-egui/src/import_pst.rs
+#: crates/ui-egui/src/import_pst.rs crates/ui-egui/src/proof.rs
 #, fuzzy
 msgid "{n} note"
 msgid_plural "{n} notes"

@@ -40,6 +40,9 @@ pub(crate) enum AfterPick {
     Tree,
     /// Ask for the picked .pst file's password and place, then import it ([`crate::import_pst`]).
     Pst,
+    /// Stage the folder picked as the dictionary folder of File › Options: it fills the field
+    /// there, and nothing is written until the owner presses Save (`proof.set`).
+    Dictionary,
 }
 
 impl FileDialogRequest {
@@ -180,6 +183,22 @@ pub(crate) fn open(app: &mut MailApp, purpose: &str) {
     let _ = ask(app, FileDialogRequest::Open { purpose: purpose.to_string() }, AfterPick::Open(purpose.to_string(), asking));
 }
 
+/// Ask the host for the folder that holds dictionary pairs (File › Options › Spelling &
+/// Grammar). The answer only fills the pending field ([`MailApp::proof_dictionary_pick`]): the
+/// setting is written by the owner's Save there, never by the picker itself.
+pub(crate) fn pick_dictionary_folder(app: &mut MailApp) -> Result<Value, String> {
+    ask(app, FileDialogRequest::Folder, AfterPick::Dictionary)
+}
+
+/// `ui.proofDictionaryFolder` takes no parameters: it is the owner's own press of Browse, and
+/// nothing of what it opens is named by whoever asked for it.
+pub(crate) const DICTIONARY_NO_PARAMS: &str = "`ui.proofDictionaryFolder` takes no parameters";
+
+/// The refusal an agent gets for `ui.proofDictionaryFolder`: a dialog on the owner's own screen
+/// is never an agent's to open, whatever permissions it was granted.
+pub(crate) const DICTIONARY_OWNER_ONLY: &str =
+    "Only the owner can choose the dictionary folder: an agent may not open a folder dialog on their screen.";
+
 fn ask(app: &mut MailApp, req: FileDialogRequest, after: AfterPick) -> Result<Value, String> {
     if app.file_dialog.is_some() {
         app.status(tl!("A file dialog is already open."));
@@ -240,6 +259,12 @@ pub(crate) fn poll(app: &mut MailApp) -> Option<Result<Value, String>> {
         AfterPick::Open(purpose, asking) => opened_path(app, &purpose, &path, asking),
         AfterPick::Tree => app.run("ui.dialog", json!({"name": "importTree", "path": path})),
         AfterPick::Pst => app.run("ui.dialog", json!({"name": "importPst", "path": path})),
+        AfterPick::Dictionary => {
+            // An accepted folder is the owner's unkept choice: it fills the field of File ›
+            // Options and writes nothing. The answer says only that it was taken, never the path.
+            app.proof_dictionary_pick = Some(path);
+            Ok(json!({"picked": true}))
+        }
         AfterPick::Export { command, mut params } => {
             if let Some(o) = params.as_object_mut() {
                 o.insert("path".into(), json!(path));

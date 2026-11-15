@@ -99,20 +99,27 @@ fn ctrl_shift_g_counts_the_words() {
     assert_eq!(crate::keys::resolve(&app, "Mod+Shift+G"), None);
 }
 
-/// The rest of the two tabs is there, greyed, and runs nothing.
+/// The rest of the two tabs is there, greyed, and runs nothing; Spelling & Grammar, which is
+/// built, runs the proofing walk instead.
 #[test]
 fn the_rest_of_insert_and_review_is_pending() {
     let mut app = writing();
-    for (tab, pending) in
-        [("Insert", ["Table", "Diagram", "Saved Text", "Chart"]), ("Review", ["Spelling & Grammar", "Thesaurus", "Translate", "Language"])]
-    {
+    for (tab, pending) in [("Insert", &["Table", "Diagram", "Saved Text", "Chart"][..]), ("Review", &["Thesaurus", "Translate", "Language"][..])] {
         app.execute("ui.tab", json!({"tab": tab})).unwrap();
         let described = crate::ribbon::describe(&app);
         for label in pending {
-            let item = described.items().find(|item| item.label == label).unwrap_or_else(|| panic!("{tab}: no {label}"));
+            let item = described.items().find(|item| item.label == *label).unwrap_or_else(|| panic!("{tab}: no {label}"));
             assert!(item.pending && item.command.is_none() && item.menu.is_none(), "{tab}: {label}");
         }
     }
+    // Spelling & Grammar is built now (#954): it opens the walk, and is not one of the greyed
+    // controls. (Its label breaks in two under the large button, hence the key.)
+    app.execute("ui.tab", json!({"tab": "Review"})).unwrap();
+    let described = crate::ribbon::describe(&app);
+    let spelling = described.items().find(|item| item.key == "review.spelling").expect("Review: no Spelling & Grammar");
+    assert!(!spelling.pending, "Spelling & Grammar is built");
+    assert!(spelling.command.as_ref().is_some_and(|(id, _)| *id == "review.spelling"), "Spelling & Grammar runs review.spelling");
+    assert!(spelling.menu.is_none(), "Spelling & Grammar is a button, not a menu");
     let mut h = window(app);
     h.state_mut().execute("ui.ribbonMode", json!({"value": "classic"})).unwrap();
     h.run_steps(3);

@@ -89,10 +89,10 @@ fn a_dropped_future_leaves_no_waker_behind() {
     let count = Arc::new(Count(AtomicUsize::new(0)));
     let waker = Waker::from(count.clone());
     for _ in 0..100 {
-        let mut f = Box::pin(queue.next());
+        let mut f = std::pin::pin!(queue.next());
         assert!(matches!(f.as_mut().poll(&mut Context::from_waker(&waker)), Poll::Pending));
     }
-    let mut live = Box::pin(queue.next());
+    let mut live = std::pin::pin!(queue.next());
     assert!(matches!(live.as_mut().poll(&mut Context::from_waker(&waker)), Poll::Pending));
     queue.push(Event::ReminderScheduleChanged);
     // Only the live future is woken: the dropped ones are gone.

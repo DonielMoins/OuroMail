@@ -132,6 +132,10 @@ fn the_sample_is_kept_nowhere() {
 
 #[test]
 fn a_window_closed_while_opening_writes_no_settings() {
+    // `PREFS_LEFT_IN_PLACE` is one flag for the whole run and `save_prefs_at` refuses while it is
+    // set: a test elsewhere that leaves it set would fail the second assertion below. Every test
+    // that can set it holds this, so the flag is clear here.
+    let _prefs = crate::settings_unread_tests::PrefsFlag::hold();
     let tmp = Temp::new("prefs");
     let file = tmp.0.join("ui.json");
     let (_tx, rx) = channel();

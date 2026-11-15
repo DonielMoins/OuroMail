@@ -3,6 +3,7 @@
 //! Writing mail: new messages, replies, forwards, drafts, sending.
 
 use mailcraft_mime_model::rich::{Img, to_html_with};
+use mailcraft_model::proof::Language;
 use mailcraft_model::rich::RichText;
 use mailcraft_model::signature::Picture;
 use mailcraft_model::sync::{DraftKind, DraftOf, DraftState, ServerDraft};
@@ -13,6 +14,7 @@ use mailcraft_model::{
 use serde_json::{Value, json};
 
 use super::{bad, base64_decode, done, fail, needs_compose, needs_message, source};
+use crate::composing::MAX_PROOF_LANGUAGE_CODES;
 use crate::{BodyFormat, CmdError, CmdResult, CommandSpec, Compose, ComposeMode, InsertedSignature, Quote, Session, p};
 
 /// Largest single attachment and most attachments on one message.
@@ -46,7 +48,7 @@ pub fn specs() -> Vec<CommandSpec> {
             .selection(needs_message),
         CommandSpec::new("compose.set", "Edit Message", "Message", set)
             .pure()
-            .params(r#"{"to"?: string, "cc"?: string, "bcc"?: string, "subject"?: string, "body"?: string, "importance"?: "low"|"normal"|"high", "account"?: number}"#)
+            .params(r#"{"to"?: string, "cc"?: string, "bcc"?: string, "subject"?: string, "body"?: string, "importance"?: "low"|"normal"|"high", "account"?: number, "proofLanguages"?: ["en-CA","fr-CA",…]} (the languages this message alone is proofread in, kept with its local draft)"#)
             .when_writing(needs_compose),
         CommandSpec::new("compose.attach", "Attach File", "Message › Include", attach)
             .pure()
@@ -1012,6 +1014,9 @@ fn reopened(s: &Session, m: &Message) -> Compose {
         pictures,
         picture_seq,
         format: if m.body.html.is_some() { BodyFormat::Html } else { BodyFormat::Plain },
+        // The languages the owner chose for this message stay with it: they are the local draft's
+        // own, and no MIME part of the message ever carries them.
+        proof_languages: crate::composing::chosen_languages(m.proof_languages.as_deref().unwrap_or(&[])),
         quote,
         attachments,
         importance: m.importance,
@@ -1032,6 +1037,32 @@ fn set(s: &mut Session, v: &Value) -> CmdResult {
     let importance = match p::str(v, "importance") {
         Some(i) => Some(Importance::parse(i).ok_or_else(|| bad("`importance` is low, normal or high"))?),
         None => None,
+    };
+    // This message's own proofing languages. Checked here, before anything is changed, so that a
+    // list with a language proofing does not know changes nothing at all.
+    let proof_languages = match v.get("proofLanguages") {
+        None => None,
+        Some(values) => {
+            let list = values.as_array().ok_or_else(|| bad("`proofLanguages` is a list of language codes"))?;
+            if list.is_empty() {
+                return Err(bad("`proofLanguages` names at least one language"));
+            }
+            if list.len() > MAX_PROOF_LANGUAGE_CODES {
+                return Err(bad("`proofLanguages` names more languages than proofing has"));
+            }
+            let mut languages: Vec<Language> = Vec::new();
+            for value in list {
+                let code = value.as_str().ok_or_else(|| bad("`proofLanguages` is a list of language codes"))?;
+                let language = Language::parse(code).ok_or_else(|| bad(format!("`{code}` is no language proofing knows")))?;
+                if !languages.contains(&language) && languages.len() < Language::ALL.len() {
+                    languages.push(language);
+                }
+            }
+            if languages.is_empty() {
+                return Err(bad("`proofLanguages` names at least one language"));
+            }
+            Some(languages)
+        }
     };
     // Sent from another account, the message takes that account's signature, unless the owner
     // edited the one in it.
@@ -1059,6 +1090,9 @@ fn set(s: &mut Session, v: &Value) -> CmdResult {
     }
     if let Some(a) = account {
         c.account = a;
+    }
+    if let Some(languages) = proof_languages {
+        c.proof_languages = Some(languages);
     }
     if *c != before {
         c.dirty = true;
@@ -1232,6 +1266,8 @@ fn build_as(s: &Session, c: &Compose, strict: bool, message_id: Option<&str>) ->
         read: true,
         importance: c.importance,
         read_receipt: c.read_receipt,
+        // Kept with a draft saved here alone; what is sent carries no language choice at all.
+        proof_languages: if strict { None } else { crate::composing::chosen_languages(c.proof_languages.as_deref().unwrap_or(&[])) },
         message_id,
         ..Default::default()
     })

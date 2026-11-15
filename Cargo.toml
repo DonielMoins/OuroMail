@@ -89,6 +89,15 @@ sysinfo = { version = "0.40.1", default-features = false, features = ["system"] 
 # gzip and deflate, for a picture a web server sends packed (already in the tree: the PNG decoder
 # runs on it); the backend written in Rust.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# The bounded, digest-pinned LanguageTool server archive (#954, `languagetool_install`).
+# MIT; only stored and deflated entries, using the existing Rust flate2 backend. Its additional
+# transitive dependencies are nix, typed-path and constant_time_eq; no other compressors or AES.
+zip = { version = "9.5.1", default-features = false, features = ["deflate-flate2"] }
+
+# The languagetool-rust crate's third-party API bindings (MIT). Request and response types are
+# used over our bounded transport, never its unbounded client or default public endpoint.
+ltrs = { package = "languagetool-rust", version = "=3.0.1", default-features = false, features = ["unstable"] }
+serde_urlencoded = "0.7"
 
 # An XML reader, for the one document Microsoft Graph hands over as XML (the cached
 # configuration of Outlook on the web, of which the list of Favorites is read:

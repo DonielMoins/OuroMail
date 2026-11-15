@@ -673,6 +673,10 @@ pub struct Compose {
     pub body: RichBody,
     /// HTML with a plain-text part, or plain text only.
     pub format: BodyFormat,
+    /// This email's proofreading languages, independent of other open emails and global
+    /// defaults. Kept in the local draft only, never in the MIME message sent to a server.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_languages: Option<Vec<mailcraft_model::proof::Language>>,
     /// The original of a reply or forward in HTML, below the owner's text. A plain-text original
     /// is quoted in the body instead, as text the owner can edit.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -793,6 +797,10 @@ pub struct InsertedSignature {
 /// same commands, until `signature.save` puts it back in the mailbox.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SignatureEdit {
+    /// Which signature editor this is, given when it is opened and never given out again. A
+    /// review or a correction names this, so that a signature of the same words — or the same
+    /// signature opened again — is still another editor. Opaque: only compared, never counted on.
+    pub id: u64,
     /// The signature as it was opened (its name, layout and pictures, as they are changed);
     /// its text is `body`'s.
     pub signature: mailcraft_model::signature::Signature,
@@ -902,6 +910,9 @@ pub struct Prefs {
     /// mail that is sent waits in the Outbox. Off unless the owner turns it on; kept between runs.
     #[serde(skip_serializing_if = "is_false")]
     pub offline: bool,
+    /// Spelling and grammar while writing (#954): the dictionaries that are on, the words the
+    /// owner added, and the grammar server. Kept between runs; nothing of a message is kept here.
+    pub proof: mailcraft_model::proof::ProofSettings,
 }
 
 impl Default for Prefs {
@@ -938,6 +949,7 @@ impl Default for Prefs {
             zoom: Prefs::ZOOM_DEFAULT,
             recent_searches: Vec::new(),
             offline: false,
+            proof: mailcraft_model::proof::ProofSettings::default(),
         }
     }
 }
@@ -1067,7 +1079,14 @@ pub struct Session {
     /// A signature open in File › Signatures. While there is one, the editing commands
     /// work on it instead of the message being written ([`Session::doc`]).
     pub signature_edit: Option<SignatureEdit>,
+    /// The last identity given to a signature editor ([`Session::signature_id`]): identities are
+    /// given out in order and never again, so a closed editor and its successor never share one.
+    pub(crate) signature_seq: u64,
     pub prefs: Prefs,
+    /// Spelling and grammar while writing (#954): the dictionaries read from this computer this
+    /// session, and Review › Spelling & Grammar's walk. Never saved; the settings it reads are in
+    /// [`Prefs::proof`].
+    pub proof: crate::proof::Proofing,
     pub registry: Arc<Registry>,
     /// The mailbox file, once opened from or saved to one.
     pub path: Option<PathBuf>,
@@ -1299,7 +1318,9 @@ impl Session {
             composing: Vec::new(),
             compose_seq: 0,
             signature_edit: None,
+            signature_seq: 0,
             prefs: Prefs::default(),
+            proof: crate::proof::Proofing::default(),
             registry: Arc::new(crate::cmd::registry()),
             path: None,
             dirty: false,
@@ -1574,6 +1595,22 @@ impl Session {
             (None, Some(c)) => Some(Doc { plain: c.format == BodyFormat::Plain, body: &mut c.body, dirty: &mut c.dirty }),
             (None, None) => None,
         }
+    }
+
+    /// Which signature editor is open, when one is: the identity this instance was opened with,
+    /// which no other instance has — a signature of the same words, or the same signature opened
+    /// again, gets an identity of its own.
+    pub fn signature_id(&self) -> Option<u64> {
+        self.signature_edit.as_ref().map(|e| e.id)
+    }
+
+    /// The next signature editor's identity, one after another from 1 for this session. `None`
+    /// when every identity has been given out: no editor is then opened, and an identity is never
+    /// 0 and never given twice (a checked count, so no wrap and no panic).
+    pub(crate) fn next_signature_id(&mut self) -> Option<u64> {
+        let next = self.signature_seq.checked_add(1)?;
+        self.signature_seq = next;
+        Some(next)
     }
 
     pub fn focused_message(&self) -> Option<&Message> {

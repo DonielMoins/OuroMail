@@ -68,7 +68,7 @@ impl SecretStore for FakeSecrets {
         if key.contains("notice") && self.notice_unwritable.load(Ordering::Relaxed) {
             return Err(HostError::Unsupported);
         }
-        if key.contains("index") && self.fail_index.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1)).is_ok() {
+        if key.contains("index") && self.fail_index.try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1)).is_ok() {
             return Err(HostError::Unsupported);
         }
         let mut kept = self.kept.lock().unwrap();

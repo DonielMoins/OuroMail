@@ -125,17 +125,25 @@ pub fn object(id: &str) -> Option<Object> {
         | "junk.remove"
         | "junk.list" => Account,
         "rules.add" | "rules.remove" | "rules.enable" | "rules.list" | "rules.move" | "rules.keepOnServer" => Rule,
+        "proof.change" => Signature,
         _ if id.starts_with("signature.") => Signature,
         "compose.send" | "compose.discard" | "compose.close" => Compose,
         "ui.closeWindow" | "ui.eventWindow" | "ui.dialog" | "ui.closeDialog" => Window,
         "file.new" | "file.open" | "file.save" | "file.saveAs" => Mailbox,
         "edit.undo" | "edit.redo" => Undo,
         "file.options"
+        | "proof.set"
+        | "proof.addWord"
+        | "proof.removeWord"
+        | "proof.ignoreRule"
+        | "proof.forgetRules"
+        | "proof.ignore"
         | "sync.offline"
         | "ui.downloadPicturesAutomatically"
         | "ui.senderImages"
         | "ui.desktopAlerts"
         | "ui.closeToTray"
+        | "ui.reminderPopups"
         | "ui.repliesInWindow"
         | "ui.updateCheck"
         | "ui.updateInstall"

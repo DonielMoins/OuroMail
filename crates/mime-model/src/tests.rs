@@ -530,6 +530,8 @@ fn message() -> impl Strategy<Value = Message> {
             folder: 5,
             uid: 11,
             draft: true,
+            // Document-local proofing metadata is not carried by Internet mail.
+            proof_languages: Some(vec![mailcraft_model::proof::Language::EnCa, mailcraft_model::proof::Language::FrCa]),
             pinned: true,
             snooze: Some(mailcraft_model::Snooze { until: 1_900_000_000, after_id: 5, from: 7, ..Default::default() }),
             warnings_dismissed: vec!["external".into()],

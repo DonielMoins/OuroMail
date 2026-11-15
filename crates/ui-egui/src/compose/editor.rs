@@ -12,7 +12,9 @@
 //!
 //! Each paragraph is laid out once and kept with what it was laid out from ([`Layout`]); a
 //! change lays out again only the paragraphs it touched, and a frame paints only the paragraphs
-//! in view, so a long message costs what is on screen.
+//! in view, so a long message costs what is on screen. What it paints is laid out from the job
+//! the paragraph was measured from ([`Para::paint_galley`]), so a font atlas made anew never
+//! leaves the text with glyphs that point into the old one.
 //!
 //! The formatting keys (Ctrl+B, I, U, K, Z, Y; Cmd on a Mac) are the body's only while it has the
 //! keyboard: elsewhere Ctrl+U marks a message unread and Ctrl+Z undoes what was done to the
@@ -155,6 +157,28 @@ struct LayoutKey {
     families: usize,
 }
 
+/// A fingerprint of the fonts the body is measured with: every family's chain of faces in order,
+/// and which face each name is. A face's bytes live behind an `Arc` shared by every clone of the
+/// definitions, so its address says which face it is without comparing a font file every frame;
+/// a face put in its place, or a chain reordered, is another fingerprint. A face can change a
+/// line's advances, wraps and carets while the row height stays the same, so the body follows
+/// this and not a height.
+fn fonts_key(defs: &egui::FontDefinitions) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for (family, chain) in &defs.families {
+        family.hash(&mut h);
+        chain.hash(&mut h);
+        for name in chain {
+            match defs.font_data.get(name) {
+                Some(face) => (Arc::as_ptr(face) as usize).hash(&mut h),
+                None => 0usize.hash(&mut h),
+            }
+        }
+    }
+    h.finish()
+}
+
 /// A picture in a paragraph, laid out: where it stands in the paragraph's text and where it is
 /// drawn, in the paragraph.
 #[derive(Clone)]
@@ -170,6 +194,9 @@ struct Para {
     source: Paragraph,
     /// Its number in a numbered list (0 otherwise).
     number: u32,
+    /// The galley it was laid out into: the paragraph's rows, line boxes and carets. Its glyphs'
+    /// places in the atlas are only good for the frame they were laid out in, so it is measured
+    /// from but never painted ([`Self::paint_galley`]).
     galley: Arc<Galley>,
     chars: usize,
     /// Its first character's position in the text, and its top in the body.
@@ -185,6 +212,15 @@ impl Para {
 
     fn height(&self) -> f32 {
         self.galley.size().y.max(1.0)
+    }
+
+    /// The galley to paint with: laid out now from the job this paragraph was measured from (the
+    /// galley keeps it), so its glyphs point into the font atlas in force this frame. egui keeps
+    /// the job's galley from one frame to the next and drops it exactly when it makes the atlas
+    /// anew, which is the one time the glyphs' places go stale: a still frame gets back the
+    /// galley it kept. The retained [`Self::galley`] is the paragraph's geometry, never painted.
+    fn paint_galley(&self, ctx: &egui::Context) -> Arc<Galley> {
+        ctx.fonts_mut(|f| f.layout_job((*self.galley.job).clone()))
     }
 
     fn end(&self) -> usize {
@@ -216,26 +252,41 @@ pub(crate) struct Layout {
     key: Option<LayoutKey>,
     paras: Vec<Para>,
     height: f32,
-    /// How full the font atlas was when the paragraphs were last checked. It only fills up,
-    /// except when it is made anew (the theme's text settings changed, or it was full): then the
-    /// glyphs the galleys point at are gone, and everything is laid out again.
-    atlas: f32,
+    /// The fonts the paragraphs were measured with ([`fonts_key`]): a changed face or family
+    /// moves rows, advances and wraps.
+    fonts: Option<u64>,
+    /// The window's ink the paragraphs were laid out in — its text, an accent link's ink, and the
+    /// sheet a sender's own colour is made readable on. [`text_format`] bakes all three into every
+    /// section of a paragraph's job, and none of them is in [`LayoutKey`]: another accent, or high
+    /// contrast turned on, inside one appearance leaves the retained jobs painting the old ink
+    /// until something else clears them. Compared as the three colours they are, not a hash of
+    /// them: three comparisons a frame cost nothing, and the same colours always compare equal.
+    ink: Option<[egui::Color32; 3]>,
     /// How many paragraphs were laid out so far, for tests.
     laid: usize,
     /// How many times egui laid out a paragraph's text so far, for tests.
     layouts: usize,
 }
 
+/// The window ink [`text_format`] bakes into a paragraph: plain text, a link (and its underline),
+/// and the sheet a sender's colour is read against. High contrast is not a fourth: it reaches the
+/// text only through those colours (and through the fonts, which [`fonts_key`] has).
+fn ink_of(t: &Tokens) -> [egui::Color32; 3] {
+    [t.text, t.accent_text, t.surface]
+}
+
 impl Layout {
     /// Bring the layout up to `doc`: the paragraphs that changed (and only those) are laid out
     /// again. Whether anything did.
     fn sync(&mut self, ctx: &egui::Context, paragraphs: &[Paragraph], pictures: &[Picture], key: LayoutKey, t: &Tokens, width: f32) -> bool {
-        let atlas = ctx.fonts(|f| f.font_atlas_fill_ratio());
-        if self.key != Some(key) || atlas < self.atlas {
+        let fonts = ctx.fonts(|f| fonts_key(f.definitions()));
+        let ink = ink_of(t);
+        if self.key != Some(key) || self.fonts != Some(fonts) || self.ink != Some(ink) {
             self.paras.clear();
             self.key = Some(key);
         }
-        self.atlas = atlas;
+        self.fonts = Some(fonts);
+        self.ink = Some(ink);
         let numbers = numbers(paragraphs);
         let same = |new: usize, old: usize| matches!((paragraphs.get(new), numbers.get(new), self.paras.get(old)), (Some(p), Some(n), Some(o)) if o.number == *n && o.source == *p);
         let (n_new, n_old) = (paragraphs.len(), self.paras.len());
@@ -672,6 +723,21 @@ pub(crate) fn show_doc(app: &mut MailApp, ui: &mut Ui, which: Which, min_height:
         }
     };
     resync(&mut layout, app);
+    // Proofing (#954): the body is looked at when it has rested, and what was found is drawn under
+    // it. The snapshot is the message's, by its id, or the signature editor instance's, while one
+    // is open: the same words in another document are another document's places.
+    let owner = match which {
+        Which::Message => app.session.compose_id().map(crate::proof::Body::Message),
+        Which::Signature => app.session.signature_id().map(crate::proof::Body::Signature),
+    };
+    let checked: Vec<crate::proof::Place> = match owner {
+        Some(owner) => {
+            let text = body(app, which).map(|(b, _)| b.plain()).unwrap_or_default();
+            crate::proof::run(app, &ctx, owner, &text);
+            app.proof.places(owner, &text)
+        }
+        None => Vec::new(),
+    };
 
     let (rect, _) = ui.allocate_exact_size(vec2(width, layout.height.max(min_height)), Sense::hover());
     let resp = ui.interact(rect, id, if editable { Sense::click_and_drag() } else { Sense::hover() });
@@ -795,9 +861,35 @@ pub(crate) fn show_doc(app: &mut MailApp, ui: &mut Ui, which: Which, min_height:
             let _ = app.execute("compose.select", json!({"from": at, "to": at}));
             st.column = None;
         }
-        // Both take pictures: a signature, and a message's text since #547.
-        let takes = crate::text_menu::Takes::Pictures;
-        crate::text_menu::body(&resp, now(app, which).is_some_and(|(sel, _)| !sel.is_empty()), takes);
+        // A click of the owner's in the body is not for the menu: it goes, before the caret moves.
+        if resp.hovered()
+            && ui.input(|i| i.pointer.button_pressed(egui::PointerButton::Primary))
+            && let Some(owner) = owner
+        {
+            crate::proof::close_menu(app, owner);
+        }
+        // Proofing (#954): a right click on a word a dictionary does not know offers what could
+        // stand there instead, and the dictionary's own commands, in place of the text's menu
+        // (which a right click anywhere else still opens, with Cut, Copy and Paste as it always
+        // has). The menu is the document's: a window's frame never opens or draws another
+        // document's.
+        if resp.hovered()
+            && let Some(owner) = owner
+            && ui.input(|i| i.pointer.button_pressed(egui::PointerButton::Secondary))
+        {
+            let (text, pointer) = (body(app, which).map(|(b, _)| b.plain()).unwrap_or_default(), ui.input(|i| i.pointer.interact_pos()));
+            let at = pointer.and_then(|p| layout.char_under(p - origin));
+            crate::proof::right_click(app, owner, &text, at, pointer.unwrap_or(rect.left_top()));
+        }
+        if let Some(owner) = owner.filter(|owner| crate::proof::menu_open(app, *owner)) {
+            // The menu stays across the frames that follow the click: it is drawn every pass until
+            // something is chosen or it is clicked away.
+            crate::proof::menu(app, &ctx, &resp, owner);
+        } else {
+            // Both take pictures: a signature, and a message's text since #547.
+            let takes = crate::text_menu::Takes::Pictures;
+            crate::text_menu::body(&resp, now(app, which).is_some_and(|(sel, _)| !sel.is_empty()), takes);
+        }
     }
 
     // The keyboard.
@@ -936,10 +1028,17 @@ pub(crate) fn show_doc(app: &mut MailApp, ui: &mut Ui, which: Which, min_height:
             break;
         }
         let at = origin + vec2(p.indent(), p.top);
+        let galley = p.paint_galley(&ctx);
         if !sel.is_empty() && sel.start() <= p.end() && sel.end() >= p.start {
-            paint_selection(painter, p, at, sel, fill);
+            paint_selection(painter, p, &galley, at, sel, fill);
         }
-        painter.galley(at, p.galley.clone(), t.text);
+        painter.galley(at, galley.clone(), t.text);
+        if !checked.is_empty() {
+            let here: Vec<crate::proof::Place> = checked.iter().filter(|q| q.from < p.end() && q.to > p.start).cloned().collect();
+            if !here.is_empty() {
+                paint_places(painter, p, &galley, at, &here, &t);
+            }
+        }
         for b in &p.pictures {
             let r = b.rect.translate(at.to_vec2());
             let picture = shown.iter().find(|x| x.id == b.id);
@@ -960,7 +1059,7 @@ pub(crate) fn show_doc(app: &mut MailApp, ui: &mut Ui, which: Which, min_height:
                 }
             }
         }
-        let row = p.galley.rows.first().map_or(Rect::from_min_size(at, vec2(0.0, p.height())), |r| r.rect().translate(at.to_vec2()));
+        let row = galley.rows.first().map_or(Rect::from_min_size(at, vec2(0.0, p.height())), |r| r.rect().translate(at.to_vec2()));
         let ink = if plain { t.text } else { p.source.runs.first().map_or(t.text, |r| if r.style.link.is_some() { t.accent_text } else { t.text }) };
         let size = if plain { BASE_SIZE } else { on_screen(p.source.runs.first().and_then(|r| r.style.size)) };
         // The marker stands in the last step of the indent: a bullet of the level's kind (filled
@@ -1080,14 +1179,43 @@ fn settle(app: &MailApp, ui: &Ui, which: Which, st: &mut State) {
 }
 
 /// The selection's part of a paragraph, behind its text.
-fn paint_selection(painter: &egui::Painter, p: &Para, at: egui::Pos2, sel: Selection, fill: egui::Color32) {
+/// A line under each proofing place of the paragraph `p`, which stands at `at` (#954): red for a
+/// word no dictionary knows, blue for what the grammar server found, in the row the place is on
+/// and only across its own characters.
+fn paint_places(painter: &egui::Painter, p: &Para, galley: &Galley, at: egui::Pos2, places: &[crate::proof::Place], t: &Tokens) {
+    for place in places {
+        let a = place.from.saturating_sub(p.start).min(p.chars);
+        let b = place.to.saturating_sub(p.start).min(p.chars);
+        if a >= b {
+            continue;
+        }
+        let colour = if place.kind == mailcraft_model::proof::Kind::Spelling { t.red } else { t.blue };
+        let mut seen = 0usize;
+        for row in &galley.rows {
+            let n = row.char_count_including_newline().0;
+            let (rs, re) = (seen, seen + n);
+            seen = re;
+            let (lo, hi) = (a.max(rs), b.min(re));
+            if lo >= hi {
+                continue;
+            }
+            let x0 = row.pos.x + row.x_offset(CharIndex(lo.saturating_sub(rs)));
+            let x1 = row.pos.x + row.x_offset(CharIndex(hi.saturating_sub(rs)));
+            let y = row.max_y() - 1.5;
+            let r = Rect::from_min_max(pos2(x0, y), pos2(x1, y + 1.5)).translate(at.to_vec2());
+            painter.rect_filled(r, 1.0, colour);
+        }
+    }
+}
+
+fn paint_selection(painter: &egui::Painter, p: &Para, galley: &Galley, at: egui::Pos2, sel: Selection, fill: egui::Color32) {
     let a = sel.start().saturating_sub(p.start).min(p.chars);
     let b = sel.end().saturating_sub(p.start).min(p.chars);
     // The paragraph's break is selected too: a sliver after its end says so.
     let breaks = sel.end() > p.end();
     let mut seen = 0usize;
-    let rows = p.galley.rows.len();
-    for (i, row) in p.galley.rows.iter().enumerate() {
+    let rows = galley.rows.len();
+    for (i, row) in galley.rows.iter().enumerate() {
         let n = row.char_count_including_newline().0;
         let (rs, re) = (seen, seen + n);
         seen = re;
@@ -1224,3 +1352,7 @@ fn pictures_only(html: &str) -> bool {
             _ => b.text().trim().is_empty(),
         })
 }
+
+#[cfg(test)]
+#[path = "atlas_tests.rs"]
+mod atlas_tests;

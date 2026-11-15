@@ -87,7 +87,7 @@ fn a_call_dropped_before_it_starts_never_runs() {
     let ran = Arc::new(AtomicBool::new(false));
     let flag = ran.clone();
     {
-        let mut future = Box::pin(core.call(move |_| {
+        let mut future = std::pin::pin!(core.call(move |_| {
             flag.store(true, Ordering::SeqCst);
             Ok(())
         }));
